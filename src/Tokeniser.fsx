@@ -1,11 +1,41 @@
 module Tokeniser =
    type tokens = Token.content list
 
-   let whitespace = [| '\n' ; '\f' ; '\r' ; '\t' ; ' ' |]
+   let charListToString (lst:char list) =
+      lst
+      |> List.toArray
+      |> System.String
 
-   let isWhitespace (ch:char) = Array.contains ch whitespace
+   let charToString (ch:char) =
+      [| ch |]
+      |> System.String
+
+   let isWhitespace (ch:char) =
+      let whitespace = [| '\n' ; '\f' ; '\r' ; '\t' ; ' ' |]
+      Array.contains ch whitespace
 
    let (|OpMatch|_|) (str:char list) =
+      let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
+      let operators  = [| '=' ;  '>' ; '<' |]
+      let operators2 = [| '<>' ; '>=' ; '<=' |]
+      let isOp1 (ch:char) =
+         Array.concat [maths_operators ; operators]
+         |> Array.contains ch
+      let (|Match2Ops|_|) (lst:char list) = function
+         | ch1 :: ch2 :: rest ->
+            let opStr =
+               [| ch1 ; ch2 |]
+               |> charArrayToString
+            if Array.contains opStr operators2 then
+               Some(opStr)
+            else
+               None
+         | _ -> None
+      match str with
+      | ch1 :: rest when isOp1 ch1 ->
+         Some(charToString ch1,rest)
+      | Match2Ops opStr -> Some(opStr)
+      | _ -> None
 
    let getTokens (str:string) =
       let rec parse (outLst:tokens list) (inStr:char list) = function
