@@ -1,2 +1,3 @@
-String Orlando Int 45 Float 0.2 
-String Rebecca Int 17 Float 3.14159
+String Some Orlando Int Some 45 Float Some 0.2 
+String Some Rebecca Int Some 17 Float Some 3.14159
+String Some Ada     Int None    Float Some 2.718
