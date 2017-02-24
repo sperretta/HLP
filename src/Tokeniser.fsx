@@ -70,7 +70,7 @@ module Tokeniser =
       let containers = [| "\"" ; "'" |]
       let rec parse (outLst:char list) (inLst:char list) (container:char) =
          match inLst with
-         | ch :: rest when ch = container -> (outLst,rest)
+         | ch :: rest when ch = container -> ((List.rev outLst),rest)
          | ch :: rest -> parse (ch :: outLst) rest container
          | [] -> printfn "Error, literal not finished"
       match str with
