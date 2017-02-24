@@ -77,6 +77,22 @@ module Tokeniser =
       | ch :: rest when Array.contains ch containers -> Some(parse [] rest ch)
       | _ -> None
 
+   let (|NameMatch|_|) (str:char list) =
+      let alpha = Array.concat [ [| a .. z |] ; [| A .. Z |] ]
+      let alphanum = Array.concat [ alpha ; [| 0 .. 9 |] ]
+      let rec parse (outLst:char list) (inLst:char list) =
+         match inLst with
+         | ch :: rest when Array.contains ch alphanum -> parse (ch :: outLst) rest
+         | ch :: rest when isWhitespace ch -> Some(outLst,rest)
+         | [] -> Some(outLst,[])
+         | _ -> None
+      match str with
+      | ch :: rest when Array.contains ch alpha ->
+         match parse [] (ch :: rest) with
+         | None -> None
+         | Some(name,rest) -> Some((List.rev name),rest)
+      | _ -> None
+
    let getTokens (str:string) =
       let rec parse (outLst:tokens list) (inStr:char list) =
          match inStr with
