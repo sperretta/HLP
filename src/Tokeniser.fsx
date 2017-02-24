@@ -27,23 +27,53 @@ module Tokeniser =
                [| ch1 ; ch2 |]
                |> charArrayToString
             if Array.contains opStr operators2 then
-               Some(opStr)
+               Some(opStr,rest)
             else
                None
          | _ -> None
       match str with
       | ch1 :: rest when isOp1 ch1 ->
          Some(charToString ch1,rest)
-      | Match2Ops opStr -> Some(opStr)
+      | Match2Ops (opStr,rest) -> Some(opStr,rest)
       | _ -> None
 
+   let (|NumMatch|_|) (str:char list) =
+      let numbers = [| 0 .. 9 |]
+      let rec parse (outLst:char list) (inLst:char list) (point:bool) (goodFloat:bool) =
+         match inLst with
+         | ch :: rest when Array.contains ch numbers -> parse (ch :: outLst) rest point goodFloat
+            if point && not goodFloat then
+               parse (ch :: outLst) rest point true
+            else
+               parse (ch :: outLst) rest point goodFloat
+         | ch :: rest when (ch = '.') && (not point) -> parse (ch :: outLst) rest true false
+         | ch :: rest when goodFloat && (isWhitespace ch) -> Some(outLst,rest)
+         | [] when goodFloat -> Some(outLst,[])
+         | _ -> None
+      let output (info: (char list * char list) option) = function
+         | None -> None
+         | Some(revNum,rest) ->
+            if not (List.contains "." revNum) then
+               "0" :: "." :: revNum
+            else revNum
+            |> List.rev
+            |> charListToString
+            |> float
+            |> fun x -> Some(x,rest)
+      parse [] str false false
+      |> output
+
    let getTokens (str:string) =
-      let rec parse (outLst:tokens list) (inStr:char list) = function
+      let rec parse (outLst:tokens list) (inStr:char list) =
+         match inStr with
          | ch :: tail when isWhitespace ch -> parse outLst tail
-         | OpMatch (op,tail) -> Operator(op) :: parse outLst tail
-         | NumMatch (num,tail) -> Numeric(num) :: parse outLst tail
-         | LitMatch (lit,tail) -> Literal(lit) :: parse outLst tail
-         | NameMatch (name,tail) -> Name(name) :: parse outLst tail
-         | error -> printfn "%A" error
+         | ch :: tail when isEndStatement ch -> parse (EndStatement :: outLst) tail
+         | OpMatch (op,tail) -> parse (Operator(op) :: outLst) tail
+         | NumMatch (num,tail) -> parse (Numeric(num) :: outLst) tail
+         | LitMatch (lit,tail) -> parse (Literal(lit) :: outLst) tail
+         | NameMatch (name,tail) -> parse (Name(name) :: outLst) tail
+         | [] -> outLst
+         | error -> printfn "Unable to parse %A" error
       List.ofSeq str
       |> parse []
+      |> List.rev
