@@ -70,7 +70,10 @@ module Tokeniser =
       let containers = [| "\"" ; "'" |]
       let rec parse (outLst:char list) (inLst:char list) (container:char) =
          match inLst with
-         | ch :: rest when ch = container -> ((List.rev outLst),rest)
+         | ch :: rest when ch = container ->
+            List.rev outLst
+            |> charListToString
+            |> fun x -> (x,rest)
          | ch :: rest -> parse (ch :: outLst) rest container
          | [] -> printfn "Error, literal not finished"
       match str with
@@ -90,7 +93,10 @@ module Tokeniser =
       | ch :: rest when Array.contains ch alpha ->
          match parse [] (ch :: rest) with
          | None -> None
-         | Some(name,rest) -> Some((List.rev name),rest)
+         | Some(name,rest) ->
+            List.rev name
+            |> charListToString
+            |> fun x -> (x,rest)
       | _ -> None
 
    let getTokens (str:string) =
