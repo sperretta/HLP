@@ -14,6 +14,9 @@ module Tokeniser =
       let whitespace = [| '\n' ; '\f' ; '\r' ; '\t' ; ' ' |]
       Array.contains ch whitespace
 
+   let isEndStatement (ch:char) =
+      if ch = ";" then true else false
+
    let (|OpMatch|_|) (str:char list) =
       let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
       let operators  = [| '=' ;  '>' ; '<' |]
@@ -62,6 +65,17 @@ module Tokeniser =
             |> fun x -> Some(x,rest)
       parse [] str false false
       |> output
+
+   let (|LitMatch|_|) (str:char list) =
+      let containers = [| "\"" ; "'" |]
+      let rec parse (outLst:char list) (inLst:char list) (container:char) =
+         match inLst with
+         | ch :: rest when ch = container -> (outLst,rest)
+         | ch :: rest -> parse (ch :: outLst) rest container
+         | [] -> printfn "Error, literal not finished"
+      match str with
+      | ch :: rest when Array.contains ch containers -> Some(parse [] rest ch)
+      | _ -> None
 
    let getTokens (str:string) =
       let rec parse (outLst:tokens list) (inStr:char list) =
