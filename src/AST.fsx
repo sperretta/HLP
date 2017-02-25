@@ -15,3 +15,11 @@ module AST =
       | Function
       | Name
       | As
+      | Condition
+      | Variable
+
+   type node =
+      | Branch of Name:node * Children:node list
+      | Literal of Token.content
+      | Key of keyword
+      | NullExp
