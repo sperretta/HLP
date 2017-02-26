@@ -31,6 +31,14 @@ module AST =
       | Result of 'a
       | Error of string
 
+   let 'a ReturnWrapper (func:'a->ReturnCode<'a>) =
+      let newFunc (data:ReturnCode<'a>) =
+         match data with
+         | ReturnCode<'a>.Result(data) ->
+            func data
+         | error -> error
+      newFunc
+
    let processConsOnReturn (item:node) (rest:ReturnCode<node list>) =
       match rest with
       | ReturnCode<node list>.Result(res) -> ReturnCode<node list>.Result(item :: res)
@@ -64,13 +72,22 @@ module AST =
       parse tokenList true
       |> fun x ->
          match x with
-         | ReturnCode<node list>.Result(columnLst,rest) -> ReturnCode<node*node list>.Result(node.Branch(keyword.Column,columnLst),rest)
-         | ReturnCode<node list>.Error(str) -> ReturnCode<node*node list>.Error(str)
+         | ReturnCode<node list>.Result(columnLst,rest) -> ReturnCode<node*Tokeniser.tokens>.Result(node.Branch(keyword.Column,columnLst),rest)
+         | ReturnCode<node list>.Error(str) -> ReturnCode<node*Tokeniser.tokens>.Error(str)
 
    let (|BranchMatch|_|) (tokenList:Tokeniser.tokens) =
-      let output (key:keyword) (result:node*Tokeniser.tokens) =
-         (key,fst result,snd result)
+      let output (key:keyword) (result:ReturnCode<node*Tokeniser.tokens>) =
+         match result with
+         | ReturnCode<node*Tokeniser.tokens>.Results(res) ->
+            (key,fst res,snd res)
+            |> fun x->
+               Some(ReturnCode<node*node list*Tokeniser.tokens>.Results(x))
+         | ReturnCode<node*Tokeniser.tokens>.Error(s) ->
+            Some(ReturnCode<node*node list*Tokeniser.tokens>.Error(s))
       let selectParse (tokenList:Tokeniser.tokens) =
+         tokenList
+         |> ColumnWrappedList
+         |> ReturnWrapper<node*Tokeniser.tokens> TableList
          //Returns body:node * rest:Tokeniser.tokens
       let insertParse (tokenList:Tokeniser.tokens) =
          //Returns body:node * rest:Tokeniser.tokens
@@ -97,7 +114,13 @@ module AST =
    let getTree (tokenList:Tokeniser.tokens) =
       let rec parse (tokens:Tokeniser.tokens) =
          match tokens with
-         | BranchMatch (key,body,rest) -> node.Branch(key,body) :: parse(rest)
-         | item :: rest when item = Token.EndStatement -> //Raise level
-         | [] -> node.Null
+         | [] -> ReturnCode<node list>.Result([])
+         | BranchMatch returned ->
+            match returned with
+            | ReturnCode<node*node list*Tokeniser.tokens>.Result(key,body,rest) ->
+               ReturnCode<node list>.Result(node.Branch(key,body) :: parse(rest))
+            | ReturnCode<node*node list*Tokeniser.tokens>.Error(str) -> ReturnCode<node list>.Error(str)
+         | other ->
+            printfn "Unrecognised sequence %A" other
+            |> fun x-> ReturnCode<node list>.Error(x)
       parse tokenList
