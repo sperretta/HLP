@@ -17,10 +17,10 @@ module Tokeniser =
    let isEndStatement (ch:char) =
       if ch = ";" then true else false
 
+   let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
+   let operators  = [| '=' ;  '>' ; '<' ; ',' ; '(' ; ')' |]
+   let operators2 = [| '<>' ; '>=' ; '<=' |]
    let (|OpMatch|_|) (str:char list) =
-      let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
-      let operators  = [| '=' ;  '>' ; '<' |]
-      let operators2 = [| '<>' ; '>=' ; '<=' |]
       let isOp1 (ch:char) =
          Array.concat [maths_operators ; operators]
          |> Array.contains ch
@@ -83,10 +83,12 @@ module Tokeniser =
    let (|NameMatch|_|) (str:char list) =
       let alpha = Array.concat [ [| a .. z |] ; [| A .. Z |] ]
       let alphanum = Array.concat [ alpha ; [| 0 .. 9 |] ]
+      let validStopChars = Array.concat [ [| ';' |] ; maths_operators ; operators ]
       let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
          | ch :: rest when Array.contains ch alphanum -> parse (ch :: outLst) rest
          | ch :: rest when isWhitespace ch -> Some(outLst,rest)
+         | ch :: rest when Array.contains ch validStopChars -> Some(outLst,ch :: rest)
          | [] -> Some(outLst,[])
          | _ -> None
       match str with
