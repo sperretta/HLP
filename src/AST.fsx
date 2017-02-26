@@ -24,6 +24,13 @@ module AST =
       | Key of keyword
       | Null
 
+   let ColumnWrappedList (tokenList:Tokeniser.tokens) = //??
+      let rec parse (lst:Tokeniser.tokens) (nextColumn:bool) =
+         match lst with
+         | Token.content.Name(columnName) :: rest when nextColumn -> node.Literal(Token.content.Name(columnName)) :: parse rest false
+         | Token.content.Operator(",") :: rest when not nextColumn -> parse rest true
+      parse tokenList true
+
    let (|BranchMatch|_|) (tokenList:Tokeniser.tokens) =
       let output (key:keyword) (result:node*Tokeniser.tokens) =
          (key,fst result,snd result)
@@ -42,19 +49,19 @@ module AST =
       match tokenList with
       | item :: rest ->
          match item with
-         | Name("SELECT") -> Some(output keyword.Select (selectParse rest))
-         | Name("INSERT") -> Some(output keyword.Insert (insertParse rest))
-         | Name("UPDATE") -> Some(output keyword.Update (updateParse rest))
-         | Name("SET") -> Some(output keyword.Set (setParse rest))
-         | Name("DECLARE") -> Some(output keyword.Declare (declareParse rest))
-         | Name("DELETE") -> Some(output keyword.Delete (deleteParse rest))
+         | Token.content.Name("SELECT") -> Some(output node.Key(keyword.Select) (selectParse rest))
+         | Token.content.Name("INSERT") -> Some(output node.Key(keyword.Insert) (insertParse rest))
+         | Token.content.Name("UPDATE") -> Some(output node.Key(keyword.Update) (updateParse rest))
+         | Token.content.Name("SET") -> Some(output node.Key(keyword.Set) (setParse rest))
+         | Token.content.Name("DECLARE") -> Some(output node.Key(keyword.Declare) (declareParse rest))
+         | Token.content.Name("DELETE") -> Some(output node.Key(keyword.Delete) (deleteParse rest))
          | _ -> None;
       | _ -> None;
 
    let getTree (tokenList:Tokeniser.tokens) =
       let rec parse (tokens:Tokeniser.tokens) =
          match tokens with
-         | BranchMatch (key,body,rest) -> Branch(key,body) :: parse(rest)
+         | BranchMatch (key,body,rest) -> node.Branch(key,body) :: parse(rest)
          | item :: rest when item = Token.EndStatement -> //Raise level
-         | [] -> Null
+         | [] -> node.Null
       parse tokenList
