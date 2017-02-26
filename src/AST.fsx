@@ -24,6 +24,10 @@ module AST =
       | Key of keyword
       | Null
 
+   type ReturnCode =
+      | Result of node
+      | Error of string
+
    let ColumnWrappedList (tokenList:Tokeniser.tokens) = //??
       let rec parse (lst:Tokeniser.tokens) (nextColumn:bool) =
          match lst with
