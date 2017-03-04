@@ -20,6 +20,11 @@ module Tokeniser =
    let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
    let operators  = [| '=' ;  '>' ; '<' ; ',' ; '(' ; ')' |]
    let operators2 = [| '<>' ; '>=' ; '<=' |]
+
+   let isValidStop (ch:char) =
+      let validStopChars = Array.concat [ maths_operators ; operators ]
+      (Array.contains ch validStopChars) || (isWhitespace ch) || (isEndStatement ch)
+
    let (|OpMatch|_|) (str:char list) =
       let isOp1 (ch:char) =
          Array.concat [maths_operators ; operators]
@@ -42,9 +47,28 @@ module Tokeniser =
 
    let (|NumMatch|_|) (str:char list) =
       let numbers = [| 0 .. 9 |]
+      let rec parse (outLst:char list) (inLst:char list) =
+         match inLst with
+         | ch :: rest when Array.contains ch numbers -> parse (ch :: outLst) rest
+         | ch :: rest when isValidStop ch -> Some(outLst,rest)
+         | [] when outLst.Length <> 0 -> Some(outLst,[])
+         | _ -> None
+      let output (info: (char list * char list) option) = function
+         | None -> None
+         | Some(revNum,rest) ->
+            revNum
+            |> List.rev
+            |> charListToString
+            |> int
+            |> fun x -> Some(x,rest)
+      parse [] str
+      |> output
+
+   let (|FloatMatch|_|) (str:char list) =
+      let numbers = [| 0 .. 9 |]
       let rec parse (outLst:char list) (inLst:char list) (point:bool) (goodFloat:bool) =
          match inLst with
-         | ch :: rest when Array.contains ch numbers -> parse (ch :: outLst) rest point goodFloat
+         | ch :: rest when Array.contains ch numbers ->
             if point && not goodFloat then
                parse (ch :: outLst) rest point true
             else
@@ -83,12 +107,11 @@ module Tokeniser =
    let (|NameMatch|_|) (str:char list) =
       let alpha = Array.concat [ [| a .. z |] ; [| A .. Z |] ]
       let alphanum = Array.concat [ alpha ; [| 0 .. 9 |] ]
-      let validStopChars = Array.concat [ [| ';' |] ; maths_operators ; operators ]
       let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
          | ch :: rest when Array.contains ch alphanum -> parse (ch :: outLst) rest
          | ch :: rest when isWhitespace ch -> Some(outLst,rest)
-         | ch :: rest when Array.contains ch validStopChars -> Some(outLst,ch :: rest)
+         | ch :: rest when isValidStop ch -> Some(outLst,ch :: rest)
          | [] -> Some(outLst,[])
          | _ -> None
       match str with
@@ -107,7 +130,8 @@ module Tokeniser =
          | ch :: tail when isWhitespace ch -> parse outLst tail
          | ch :: tail when isEndStatement ch -> parse (EndStatement :: outLst) tail
          | OpMatch (op,tail) -> parse (Operator(op) :: outLst) tail
-         | NumMatch (num,tail) -> parse (Numeric(num) :: outLst) tail
+         | NumMatch (num,tail) -> parse (Numeric(Integer(num)) :: outLst) tail
+         | FloatMatch (num,tail) -> parse (Numeric(Floating(num)) :: outLst) tail
          | LitMatch (lit,tail) -> parse (Literal(lit) :: outLst) tail
          | NameMatch (name,tail) -> parse (Name(name) :: outLst) tail
          | [] -> outLst
