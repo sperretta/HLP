@@ -11,7 +11,7 @@ module AST =
       | Order
       | Limit
       | Offset
-      | Values
+      | Value
       | Function
       | Name
       | As
@@ -19,6 +19,8 @@ module AST =
       | Variable
       | Column
       | Alias
+      | And
+      | Or
 
    type node =
       | Branch of Name:node * Children:node list
@@ -75,6 +77,8 @@ module AST =
          | ReturnCode<node list>.Result(columnLst,rest) -> ReturnCode<node*Tokeniser.tokens>.Result(node.Branch(keyword.Column,columnLst),rest)
          | ReturnCode<node list>.Error(str) -> ReturnCode<node*Tokeniser.tokens>.Error(str)
 
+   let TableList (tokenList
+
    let (|BranchMatch|_|) (tokenList:Tokeniser.tokens) =
       let output (key:keyword) (result:ReturnCode<node*Tokeniser.tokens>) =
          match result with
@@ -87,6 +91,7 @@ module AST =
       let selectParse (tokenList:Tokeniser.tokens) =
          tokenList
          |> ColumnWrappedList
+         //?? Need to change how it is piped, it returns something that should be in the body, pass rest to cons.
          |> ReturnWrapper<node*Tokeniser.tokens> TableList
          //Returns body:node * rest:Tokeniser.tokens
       let insertParse (tokenList:Tokeniser.tokens) =
