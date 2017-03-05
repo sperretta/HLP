@@ -8,7 +8,7 @@
     <ProjectGuid>bf6ce806-f89a-4545-873e-06193fed3172</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>testInputPutput</RootNamespace>
-    <AssemblyName>testInputPutput</AssemblyName>
+    <AssemblyName>testInputOutput</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
@@ -23,7 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\testInputPutput.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\testInputOutput.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">

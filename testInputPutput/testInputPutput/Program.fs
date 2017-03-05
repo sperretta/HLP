@@ -92,7 +92,7 @@ let tests =
 
 let properties =
     testList "FsCheck" [
-        testProperty "Addition is commutative" <| fun a ->
+        testProperty "Same data is read in from a string built from data" <| fun a ->
         a = readInLine (a |> strBuilder |> buildLine)
 
     ]
