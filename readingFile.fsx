@@ -46,6 +46,51 @@
         | a :: tail when a = "Bool"   -> helperFunc tail System.Convert.ToBoolean Bool strProcess a
         | e :: tail                   -> (Some >> String) ("error: " + e) :: (strProcess tail)
          
+    let exCol = ["Names"; "String"; "ID"; "Int"]
+    let exData = [String (Some "Hedda"); Int (Some 1)]
+    let exDataMult = [[String (Some "Hedda"); Int (Some 1)];[String (Some "Nora"); Int (Some 6)]]
+    let badData = [[String (Some "Hedvig"); Float (Some 3.2)]]
+
+       
+    let checkType colType inpNext = 
+        match inpNext with
+        | String a -> colType = "String"
+        | Int a    -> colType = "Int"
+        | Float a  -> colType = "Float"
+        | Byte a   -> colType = "Byte"
+        | Bool a   -> colType = "Bool"
+
+
+    let rec matchInputListsRec columns inpData prevNode nextNode =
+        match (columns,inpData) with 
+        | ([],[]) -> ()
+        | (colName :: colType :: colTail, inpNext :: inpTail) when checkType colType inpNext->
+            let newNode = ref INilLow
+            nextNode := (INode (colName, inpNext, prevNode, newNode))
+            matchInputListsRec colTail inpTail nextNode newNode
+        | _ -> printfn "Error: %A" (columns,inpData)
+    
+    let matchInputLists columns inpData =
+        let firstHead = ref INilLow
+        let nextNode  = ref INilLow
+        matchInputListsRec columns inpData firstHead nextNode
+        nextNode
+    matchInputLists exCol exData
+
+    let listBuilder acc lowList =
+        let newNode = ref INilTop
+        acc := Node (lowList, newNode)
+        newNode
+
+    let buildData columns inpData = 
+        let tmp = List.map (matchInputLists columns) inpData
+        let firstHead = ref INilTop
+        List.fold listBuilder firstHead tmp |> ignore
+        firstHead
+    buildData exCol exDataMult
+    buildData exCol badData
+
+
     // Tests
     strProcess ["String"; "Some"; "Orlando"; "Int"; "Some"; "45"]
     strProcess ["Byte"; "Some"; "0xF3"; "Byte"; "None"]
