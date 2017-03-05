@@ -8,11 +8,6 @@
     type data = ref<topList>                                                                              // Holds all the data in the database
      
 
-    let myPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\dataFile.txt"
-
-    let readFile pathString = IO.File.ReadLines pathString
-
-    let fileLines = readFile myPath
 
     let head1  = ref INilLow
     let tail1  = ref INilLow
@@ -35,7 +30,7 @@
     tmpT := Node (test3, tailT)
     myTopList
 
-    let helperfunc list f F caller emes=
+    let helperFunc list f F caller emes=
         match list with
         | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
         | "None" :: tail -> F None :: caller tail
@@ -44,11 +39,11 @@
 
     let rec strProcess = function
         | [] -> []
-        | a :: tail when a = "String" -> helperfunc tail (fun x -> x) String strProcess a
-        | a :: tail when a = "Int"    -> helperfunc tail int Int strProcess a
-        | a :: tail when a = "Float"  -> helperfunc tail float Float strProcess a
-        | a :: tail when a = "Byte"   -> helperfunc tail byte Byte strProcess a
-        | a :: tail when a = "Bool"   -> helperfunc tail System.Convert.ToBoolean Bool strProcess a
+        | a :: tail when a = "String" -> helperFunc tail (fun x -> x) String strProcess a
+        | a :: tail when a = "Int"    -> helperFunc tail int Int strProcess a
+        | a :: tail when a = "Float"  -> helperFunc tail float Float strProcess a
+        | a :: tail when a = "Byte"   -> helperFunc tail byte Byte strProcess a
+        | a :: tail when a = "Bool"   -> helperFunc tail System.Convert.ToBoolean Bool strProcess a
         | e :: tail                   -> (Some >> String) ("error: " + e) :: (strProcess tail)
          
     // Tests
@@ -60,6 +55,26 @@
     strProcess ["Strange"; "Some"; "Dragon"]
 
 
+    let rec strBuilder = function
+        | [] -> []
+        | String (Some a) :: tail -> "String Some " + string a :: strBuilder tail
+        | String None     :: tail -> "String None"             :: strBuilder tail
+        | Int (Some a)    :: tail -> "Int Some " + string a    :: strBuilder tail
+        | Int None        :: tail -> "Int None"                :: strBuilder tail
+        | Float (Some a)  :: tail -> "Float Some " + string a  :: strBuilder tail
+        | Float None      :: tail -> "Float None"              :: strBuilder tail
+        | Byte (Some a)   :: tail -> "Byte Some " + string a   :: strBuilder tail
+        | Byte None       :: tail -> "Byte None"               :: strBuilder tail
+        | Bool (Some a)   :: tail -> "Bool Some " + string a   :: strBuilder tail
+        | Bool None       :: tail -> "Bool None"               :: strBuilder tail
+
+    let rec buildLine lineList = 
+        match lineList with
+        | [] -> ""
+        | el :: tail -> el + " " + (buildLine tail)
+
+    let buildOutSeq myData =
+        myData |> List.map strBuilder |> List.map buildLine |> Seq.ofList
 
     let readInLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
@@ -70,8 +85,28 @@
     let readIn mySeq =
         mySeq |> Seq.toList |> List.map readInLine
 
-    let k = readIn fileLines
+    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\dataFile.txt"
+    let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFile.txt"
 
+    let readFile pathString = IO.File.ReadLines pathString
+
+    let fileLines = readFile myPath
+
+    let ReadInData myPath = 
+        myPath |> IO.File.ReadLines |> readIn
+
+    let k = readIn fileLines
+    let j = ReadInData myPath
+
+    let s = strBuilder (List.head j )
+    let t = buildLine s
+    let u = buildOutSeq j
+    File.WriteAllLines(outPath, u)
+    let v = ReadInData outPath
+
+
+ 
         
     printfn "%A" fileLines
     printfn "%A" k
+    printfn "%A" j
