@@ -156,6 +156,7 @@ module Tokeniser =
    let (|NameMatch|_|) (str:char list) =
       let alpha = Array.concat [ [| 'a' .. 'z' |] ; [| 'A' .. 'Z' |] ]
       let alphanum = Array.concat [ alpha ; [| '0' .. '9' |] ]
+      ///Pase through character list to collect alphanumeric word
       let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
          | ch :: rest when Array.contains ch alphanum -> parse (ch :: outLst) rest
@@ -173,7 +174,9 @@ module Tokeniser =
             |> fun x -> Some(x,rest)
       | _ -> None
 
+   ///Convert string into list of tokens
    let getTokens (str:string) =
+      ///Parse through character list, converting into tokens
       let rec parse (outLst:tokens) (inStr:char list) =
          match inStr with
          | ch :: tail when isWhitespace ch -> parse outLst tail
@@ -184,7 +187,6 @@ module Tokeniser =
          | LitMatch (lit,tail) -> parse (Token.Literal(lit) :: outLst) tail
          | ByteMatch (byt,tail) -> parse (Token.Value(Token.value.Byte(byt)) :: outLst) tail
          | BoolMatch (boolean,tail) -> parse (Token.Value(Token.value.Boolean(boolean)) :: outLst) tail
-         | CharMatch (ch,tail) -> parse (Token.Value(Token.value.Character(ch)) :: outLst) tail
          | NameMatch (name,tail) -> parse (Token.Name(name) :: outLst) tail
          | [] -> outLst
          | error -> failwithf "Unable to parse %A" error
