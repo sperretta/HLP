@@ -1,3 +1,4 @@
+namespace Tokeniser
 module Token =
     type number =
         | Integer of int
