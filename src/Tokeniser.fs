@@ -1,35 +1,47 @@
 namespace Tokeniser
 module Tokeniser =
+   ///A list of tokens
    type tokens = Token.content list
 
+   ///Convert a list of characters into a string
    let charListToString (lst:char list) =
       lst
       |> List.toArray
       |> System.String
 
+   ///Convert a single character into a string
    let charToString (ch:char) =
       [| ch |]
       |> System.String
 
+   ///Check if a character is whitespace
    let isWhitespace (ch:char) =
       let whitespace = [| '\n' ; '\f' ; '\r' ; '\t' ; ' ' |]
       Array.contains ch whitespace
 
+   ///Check if a character is the end of a statement
    let isEndStatement (ch:char) =
       if ch = ';' then true else false
 
+   //Operators
    let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
    let operators  = [| '=' ;  '>' ; '<' ; ',' ; '(' ; ')' |]
    let operators2 = [| "<>" ; ">=" ; "<=" |]
 
+   ///Check if a character terminates a name or number match
    let isValidStop (ch:char) =
       let validStopChars = Array.concat [ maths_operators ; operators ]
       (Array.contains ch validStopChars) || (isWhitespace ch) || (isEndStatement ch)
 
+   ///Pattern match for operators
+   ///Returns string of operator and remaining characters if successful
    let (|OpMatch|_|) (str:char list) =
+      ///Check if a character is a single length operator
       let isOp1 (ch:char) =
          Array.concat [maths_operators ; operators]
          |> Array.contains ch
+      ///Pattern match for two character length operators
+      ///Return string form of operator (and remaining characters) if match occurs
       let (|Match2Ops|_|) = function
          | ch1 :: ch2 :: rest ->
             let opStr =
@@ -46,14 +58,18 @@ module Tokeniser =
       | Match2Ops (opStr,rest) -> Some(opStr,rest)
       | _ -> None
 
+   ///Pattern match for integers
+   ///Returns integer and remaining characters if successful
    let (|NumMatch|_|) (str:char list) =
       let numbers = [| '0' .. '9' |]
+      ///Parse through character list extracting set of consecutive numbers
       let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
          | ch :: rest when Array.contains ch numbers -> parse (ch :: outLst) rest
-         | ch :: rest when isValidStop ch -> Some(outLst,rest)
+         | ch :: rest when isValidStop ch && outLst.Length <> 0 -> Some(outLst,rest)
          | [] when outLst.Length <> 0 -> Some(outLst,[])
          | _ -> None
+      ///Convert parsed number into usable numerical form
       let output (info: (char list * char list) option) =
          match info with
          | None -> None
@@ -66,8 +82,11 @@ module Tokeniser =
       parse [] str
       |> output
 
+   ///Pattern match for floating point numbers
+   ///Returns float and remaining characters if successful
    let (|FloatMatch|_|) (str:char list) =
       let numbers = [| '0' .. '9' |]
+      ///Parse through character list extracting set of consecutive numbers, must include a point
       let rec parse (outLst:char list) (inLst:char list) (point:bool) (goodFloat:bool) =
          match inLst with
          | ch :: rest when Array.contains ch numbers ->
@@ -79,6 +98,7 @@ module Tokeniser =
          | ch :: rest when goodFloat && (isWhitespace ch) -> Some(outLst,rest)
          | [] when goodFloat -> Some(outLst,[])
          | _ -> None
+      ///Convert parsed number into usable numerical form
       let output (info: (char list * char list) option) =
          match info with
          | None -> None
@@ -93,7 +113,10 @@ module Tokeniser =
       parse [] str false false
       |> output
 
-   let (|LitMatch|_|) (str:char list) = //?? Need to convert to char and literal - char being '' and literal being ""
+   ///Pattern match for literals (strings encapsulated in quotation marks)
+   ///Returns string and remaining characters if successful
+   let (|LitMatch|_|) (str:char list) =
+      ///Parse through character list until find the terminating character (")
       let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
          | ch :: rest when ch = '"' ->
@@ -107,6 +130,8 @@ module Tokeniser =
       | '"' :: rest -> Some(parse [] rest)
       | _ -> None
 
+   ///Pattern match for bytes, format: '<number>'B //?? Currently incorrect
+   ///Returns string and remaining characters if successful
    let (|ByteMatch|_|) (str:char list) =
       match str with
       | '\'' :: mid ->
@@ -118,23 +143,16 @@ module Tokeniser =
          | _ -> failwithf "Error, expected '"
       | _ -> None
 
-   let (|CharMatch|_|) (str:char list) =
-      match str with
-      | '\'' :: mid ->
-         match mid with
-         | ch :: '\'' :: rest when ch <> '\'' -> Some(ch,rest)
-         | ch1 :: ch2 :: rest ->
-            printfn "Expected ' got %A" ch2
-            failwithf "Error"
-         | _ -> failwithf "Error, char not finished"
-      | _ -> None
-
+   ///Pattern match for booleans, IE True or False
+   ///Returns bool and remaining characters if successful
    let (|BoolMatch|_|) (str:char list) =
       match str with
       | 'T' :: 'r' :: 'u' :: 'e' :: rest -> Some(true,rest)
       | 'F' :: 'a' :: 'l' :: 's' :: 'e' :: rest -> Some(false,rest)
       | _ -> None
 
+   ///Pattern match for names, alphanumeric strings that start with an alphabetic character
+   ///Returns string and remaining characters if successful
    let (|NameMatch|_|) (str:char list) =
       let alpha = Array.concat [ [| 'a' .. 'z' |] ; [| 'A' .. 'Z' |] ]
       let alphanum = Array.concat [ alpha ; [| '0' .. '9' |] ]
