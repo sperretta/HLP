@@ -1,8 +1,0 @@
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\SQL_Emulator.exe.config
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\SQL_Emulator.XML
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\SQL_Emulator.exe
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\SQL_Emulator.pdb
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\FSharp.Core.dll
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\bin\Debug\FSharp.Core.xml
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\obj\Debug\SQL_Emulator.exe
-C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\SQL-Emulator\SQL-Emulator\obj\Debug\SQL_Emulator.pdb

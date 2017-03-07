@@ -1,4 +1,4 @@
-﻿namespace SQL_Emulator.AssemblyInfo
+﻿namespace SharpDataTests.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices
@@ -7,11 +7,11 @@ open System.Runtime.InteropServices
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[<assembly: AssemblyTitle("SQL-Emulator")>]
+[<assembly: AssemblyTitle("SharpDataTests")>]
 [<assembly: AssemblyDescription("")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
-[<assembly: AssemblyProduct("SQL-Emulator")>]
+[<assembly: AssemblyProduct("SharpDataTests")>]
 [<assembly: AssemblyCopyright("Copyright ©  2017")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
@@ -22,7 +22,7 @@ open System.Runtime.InteropServices
 [<assembly: ComVisible(false)>]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[<assembly: Guid("49d1bec8-aabc-4e49-9e25-3322767d652f")>]
+[<assembly: Guid("f8c9e22e-aefd-4492-acba-d95d7eabd244")>]
 
 // Version information for an assembly consists of the following four values:
 // 

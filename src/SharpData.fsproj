@@ -5,14 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>49d1bec8-aabc-4e49-9e25-3322767d652f</ProjectGuid>
+    <ProjectGuid>a932a025-57e1-450d-b2c8-1cbe0d10fa45</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SQL_Emulator</RootNamespace>
-    <AssemblyName>SQL_Emulator</AssemblyName>
+    <RootNamespace>SharpData</RootNamespace>
+    <AssemblyName>SharpData</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>SQL-Emulator</Name>
+    <Name>SharpData</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,7 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\SQL_Emulator.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\SharpData.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -34,7 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\SQL_Emulator.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\SharpData.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
