@@ -99,7 +99,8 @@ module Tokeniser =
          | ch :: rest when ch = '"' ->
             List.rev outLst
             |> charListToString
-            |> fun x -> (x,rest)
+            |> fun x ->
+                if x.Length < 256 then (x,rest) else failwithf "Literal is too long"
          | ch :: rest -> parse (ch :: outLst) rest
          | [] -> failwithf "Error, literal not finished"
       match str with
