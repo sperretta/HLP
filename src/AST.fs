@@ -46,11 +46,11 @@ module AST =
             | Error(s) -> Error(s)
       | Error(s) -> Error (s)
 
-   let OptionalReturnWrapper matchFunc data =
+   let OptionalReturnWrapper (|MatchFunc|_|) (data:ReturnCode<node list*Tokeniser.tokens>) =
       match data with
       | Result(nLst,tLst) ->
          match tLst with
-         | matchFunc(matchedResult) ->
+         | MatchFunc matchedResult ->
             match matchedResult with
             | Result(nod,newTLst) ->
                Result((nLst @ [nod]),newTLst)
@@ -116,16 +116,42 @@ module AST =
          | Result(nLst,tLst) -> Result(node.Branch(Key(From),nLst),tLst)
          | Error (s) -> Error(s)
 
+   let ConditionsList (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
+      let (|ConditionMatch|ConditionError|) (tokenList:Tokeniser.tokens) =
+         let isCompareOp str = 
+            let compareOperators = [| "=" ; "<>" ; "<" ; ">" ; "<=" ; ">=" |]
+            Array.contains str compareOperators
+         match tokenList with
+         | Token.content.Name(name) :: Token.content.Operator(op) :: rest when isCompareOp op ->
+            match rest with
+            | Value (value,tail) ->
+               [ Item(Name,Token.content.Name(name)) ; Item(Operator,Token.content.Operator(op)) ; value ]
+               |> fun x -> ConditionMatch(x,tail)
+      let rec parse (tokenList:Tokeniser.tokens) =
+         match tokenList with
+         | Token.content.Name("AND") :: rest ->
+            match rest with
+            | ConditionMatch (nod,tail) -> Branch(And,nod) :: parse tail
+            | ConditionError str-> Error(str)
+         | Token.content.Name("OR") :: rest ->
+            match rest with
+            | ConditionMatch (nod,tail) -> Branch(Or,nod) :: parse tail
+            | ConditionError str-> Error(str)
+         | rest -> Result([],rest)
+      match input with
+      | Token.content.Name("WHERE") :: rest -> Some(
+      | _ -> None
+
+   let OrderList (input:Tokeniser.tokens) =
+
+   let LimitItem (input:Tokeniser.tokens) =
+
    let (|BranchMatch|_|) (tokenList:Tokeniser.tokens) =
       let output (key:Key) (result:ReturnCode<node*Tokeniser.tokens>) =
          match result with
          | Result(res) -> Result(key,fst res,snd res)
          | Error(s) -> Error(s)
       let selectParse (tokenList:Tokeniser.tokens) =
-         let (|ConditionsList|_|) (input:Tokeniser.tokens) =
-            match input with
-            | Token.content.Name("WHERE") :: rest -> Some
-            | _ -> None
          Result([],tokenList)
          |> ReturnWrapper ColumnWrappedList
          |> ReturnWrapper TableList
