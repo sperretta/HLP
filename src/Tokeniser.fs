@@ -94,17 +94,44 @@ module Tokeniser =
       |> output
 
    let (|LitMatch|_|) (str:char list) = //?? Need to convert to char and literal - char being '' and literal being ""
-      let containers = [| '"' ; '\'' |]
-      let rec parse (outLst:char list) (inLst:char list) (container:char) =
+      let rec parse (outLst:char list) (inLst:char list) =
          match inLst with
-         | ch :: rest when ch = container ->
+         | ch :: rest when ch = '"' ->
             List.rev outLst
             |> charListToString
             |> fun x -> (x,rest)
-         | ch :: rest -> parse (ch :: outLst) rest container
+         | ch :: rest -> parse (ch :: outLst) rest
          | [] -> failwithf "Error, literal not finished"
       match str with
-      | ch :: rest when Array.contains ch containers -> Some(parse [] rest ch)
+      | '"' :: rest -> Some(parse [] rest)
+      | _ -> None
+
+   let (|ByteMatch|_|) (str:char list) =
+      match str with
+      | '\'' :: mid ->
+         match mid with
+         | byt :: '\'' :: 'B' :: rest when byt <> '\'' -> Some(byte(byt),rest)
+         | ch1 :: ch2 :: rest ->
+            printfn "Expected ' got %A" ch2
+            failwithf "Error"
+         | _ -> failwithf "Error, expected '"
+      | _ -> None
+
+   let (|CharMatch|_|) (str:char list) =
+      match str with
+      | '\'' :: mid ->
+         match mid with
+         | ch :: '\'' :: rest when ch <> '\'' -> Some(ch,rest)
+         | ch1 :: ch2 :: rest ->
+            printfn "Expected ' got %A" ch2
+            failwithf "Error"
+         | _ -> failwithf "Error, char not finished"
+      | _ -> None
+
+   let (|BoolMatch|_|) (str:char list) =
+      match str with
+      | 'T' :: 'r' :: 'u' :: 'e' :: rest -> Some(true,rest)
+      | 'F' :: 'a' :: 'l' :: 's' :: 'e' :: rest -> Some(false,rest)
       | _ -> None
 
    let (|NameMatch|_|) (str:char list) =
@@ -133,9 +160,12 @@ module Tokeniser =
          | ch :: tail when isWhitespace ch -> parse outLst tail
          | ch :: tail when isEndStatement ch -> parse (Token.EndStatement :: outLst) tail
          | OpMatch (op,tail) -> parse (Token.Operator(op) :: outLst) tail
-         | NumMatch (num,tail) -> parse (Token.Numeric(Token.number.Integer(num)) :: outLst) tail
-         | FloatMatch (num,tail) -> parse (Token.Numeric(Token.number.Floating(num)) :: outLst) tail
+         | NumMatch (num,tail) -> parse (Token.Value(Token.value.Integer(num)) :: outLst) tail
+         | FloatMatch (num,tail) -> parse (Token.Value(Token.value.Floating(num)) :: outLst) tail
          | LitMatch (lit,tail) -> parse (Token.Literal(lit) :: outLst) tail
+         | ByteMatch (byt,tail) -> parse (Token.Value(Token.value.Byte(byt)) :: outLst) tail
+         | BoolMatch (boolean,tail) -> parse (Token.Value(Token.value.Boolean(boolean)) :: outLst) tail
+         | CharMatch (ch,tail) -> parse (Token.Value(Token.value.Character(ch)) :: outLst) tail
          | NameMatch (name,tail) -> parse (Token.Name(name) :: outLst) tail
          | [] -> outLst
          | error -> failwithf "Unable to parse %A" error

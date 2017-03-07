@@ -1,11 +1,14 @@
 namespace Tokeniser
 module Token =
-    type number =
+    type value =
         | Integer of int
         | Floating of float
+        | Character of char
+        | Byte of byte
+        | Boolean of bool
     type content =
         | Name of string
         | Literal of string
-        | Numeric of number
+        | Value of value
         | Operator of string
         | EndStatement
