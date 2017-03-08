@@ -1,6 +1,6 @@
 namespace Tokeniser
 module Tokeniser =
-    ///Type for dealing with program errors
+    ///Type for dealing with program errors ?? Extract this to separate file
     type ReturnCode<'a> =
     | Result of 'a
     | Error of string
@@ -132,7 +132,10 @@ module Tokeniser =
             List.rev litLst
             |> charListToString
             |> fun x ->
-                 if x.Length < 256 then (x,rest) else failwithf "Literal is too long"
+                 if x.Length < 256 then Result(x,rest) else Error(sprintf "Literal is too long:\n%s" x)
+        let getLiteralString (lst:char list) =
+            ['"'] @ lst @ ['"']
+            |> charListToString
         ///Parse through character list until find the terminating character (")
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
@@ -140,9 +143,15 @@ module Tokeniser =
                 match rest with
                 | ch2 :: tail when isValidStop ch2 -> output outLst (ch2 :: tail)
                 | [] -> output outLst []
-                | _ -> failwithf "Error, invalid literal (need termination between final \" and next character)"
+                | _ -> 
+                    getLiteralString outLst
+                    |> sprintf "Invalid literal %s (need termination between final \" and next character)"
+                    |> fun x -> Error(x)
             | ch :: rest -> parse (ch :: outLst) rest
-            | [] -> failwithf "Error, literal not finished"
+            | [] ->
+                getLiteralString outLst
+                |> sprintf "Literal %s not finished (no characters left)"
+                |> fun x -> Error(x)
         match str with
         | '"' :: rest -> Some(parse [] rest)
         | _ -> None
@@ -156,7 +165,8 @@ module Tokeniser =
             |> List.rev
             |> charListToString
             |> int
-            |> fun x -> if x < 256 && x > 0 then Some(byte x,rest) else failwithf "Byte is outside range"
+            |> fun x -> if x < 256 && x > 0 then Result(byte x,rest) else Error(sprintf "Byte %u is outside range" x)
+            |> fun x -> Some(x)
         ///Parse through character list extracting set of consecutive numbers, ending in B
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
@@ -165,7 +175,11 @@ module Tokeniser =
                 match rest with
                 | ch2 :: tail when isValidStop ch2 -> output outLst (ch2 :: tail)
                 | [] -> output outLst []
-                | _ -> failwithf "Error, invalid byte (need termination between B and next character)"
+                | _ -> 
+                    outLst
+                    |> charListToString
+                    |> sprintf "Invalid byte %s (need termination between B and next character)"
+                    |> fun x -> Some(Error(x))
             | _ -> None
         match str with
         | ch :: rest when Array.contains ch numbers -> parse [] rest
@@ -207,21 +221,29 @@ module Tokeniser =
         | _ -> None
 
     ///Convert string into list of tokens
-    let getTokens (str:string) =
+    let getTokens (str:string) : ReturnCode<tokens> =
         ///Parse through character list, converting into tokens
         let rec parse (outLst:tokens) (inStr:char list) =
+            ///Deal with output of match
+            let output matchedResult tokenType =
+                match matchedResult with
+                | Result(item,tail) -> parse (tokenType(item) :: outLst) tail
+                | Error(s) -> Error(s)
             match inStr with
             | ch :: tail when isWhitespace ch -> parse outLst tail
             | ch :: tail when isEndStatement ch -> parse (Token.EndStatement :: outLst) tail
             | OpMatch (op,tail) -> parse (Token.Operator(op) :: outLst) tail
             | NumMatch (num,tail) -> parse (Token.Value(Token.value.Integer(num)) :: outLst) tail
             | FloatMatch (num,tail) -> parse (Token.Value(Token.value.Floating(num)) :: outLst) tail
-            | LitMatch (lit,tail) -> parse (Token.Literal(lit) :: outLst) tail
-            | ByteMatch (byt,tail) -> parse (Token.Value(Token.value.Byte(byt)) :: outLst) tail
+            | LitMatch result -> output result Token.Literal
+            | ByteMatch result -> output result (Token.Value << Token.value.Byte)
             | BoolMatch (boolean,tail) -> parse (Token.Value(Token.value.Boolean(boolean)) :: outLst) tail
             | NameMatch (name,tail) -> parse (Token.Name(name) :: outLst) tail
-            | [] -> outLst
-            | error -> failwithf "Unable to parse %A" error
+            | [] -> Result(outLst)
+            | error -> Error(sprintf "Unrecognised sequence: %A" error)
         List.ofSeq str
         |> parse []
-        |> List.rev
+        |> fun x ->
+            match x with
+            | Result(y) -> Result(List.rev y)
+            | error -> error
