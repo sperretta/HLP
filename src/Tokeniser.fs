@@ -1,5 +1,10 @@
 namespace Tokeniser
 module Tokeniser =
+    ///Type for dealing with program errors
+    type ReturnCode<'a> =
+    | Result of 'a
+    | Error of string
+
     ///A list of tokens
     type tokens = Token.content list
 
