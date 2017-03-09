@@ -58,16 +58,6 @@ module AST =
             | _ -> Result(nLst,tLst)
         | Error(s) -> Error(s)
 
-    let processTupleConsOnReturn (item:'a) (rest:ReturnCode<'a list*'b>) : ReturnCode<'a list*'b> =
-        match rest with
-        | Result(res,rest) -> Result(item :: res,rest)
-        | Error(s) -> Error(s)
-
-    let processConsOnReturn (item:'a) (rest:ReturnCode<'a list>) : ReturnCode<'a list> =
-        match rest with
-        | Result(res) -> Result(item::res)
-        | error -> error
-
     let ColumnWrappedList (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let (|FunctionMatch|_|) (lst:Tokeniser.tokens) =
             let validFunctions = [| "AVG" ; "MAX" ; "MIN" ; "SUM" ; "ROUND" |]
@@ -82,39 +72,35 @@ module AST =
                 [node.Item(Key(Name),Literal(Token.content.Name(colName))) ; node.Item(Key(Alias),Literal(Token.content.Literal(colAlias)))]
                 |> fun x -> Some(x,rest)
             | _ -> None
-        let rec parse (lst:Tokeniser.tokens) (nextColumn:bool) : ReturnCode<node list*Tokeniser.tokens> =
+        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextColumn:bool) : ReturnCode<node list*Tokeniser.tokens> =
             match lst with
-            | FunctionMatch (funLst,rest) when nextColumn ->
-                processTupleConsOnReturn (Branch(Key(Function),funLst)) (parse rest false)
-            | AliasMatch (aliasLst,rest) when nextColumn ->
-                processTupleConsOnReturn (Branch(Key(Alias),aliasLst)) (parse rest false)
-            | Token.content.Name(name) :: rest when nextColumn ->
-                processTupleConsOnReturn (Item(Key(Name),Literal(Token.content.Name(name)))) (parse rest false)
-            | Token.content.Operator(",") :: rest when not nextColumn -> parse rest true
+            | FunctionMatch (funLst,rest) when nextColumn -> parse (Branch(Key(Function),funLst) :: outLst) rest false
+            | AliasMatch (aliasLst,rest) when nextColumn -> parse (Branch(Key(Alias),aliasLst) :: outLst) rest false
+            | Token.content.Name(name) :: rest when nextColumn -> parse (Item(Key(Name),Literal(Token.content.Name(name))) :: outLst) rest false
+            | Token.content.Operator(",") :: rest when not nextColumn -> parse outLst rest true
             | item :: rest when nextColumn -> Error(sprintf "Expected wrapped column name, got %A" item)
-            | rest -> Result([],rest)
-        parse tokenList true
+            | rest -> Result(outLst,rest)
+        parse [] tokenList true
         |> fun x ->
             match x with
-            | Result(columnLst,rest) -> Result(node.Branch(Key(Column),columnLst),rest)
+            | Result(columnLst,rest) -> Result(node.Branch(Key(Column),(List.rev columnLst)),rest)
             | Error(error) -> Error(error)
 
     let TableList (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
-        let rec parse (lst:Tokeniser.tokens) (nextItem:bool) =
+        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
              match lst with
-             | Token.content.Name(name) :: rest when nextItem ->
-                 processTupleConsOnReturn (node.Literal(Token.content.Name(name))) (parse rest false)
-             | Token.content.Operator(op) :: rest when op = "," && not nextItem ->
-                 parse rest true
-             | item :: rest when nextItem ->
-                 Error(sprintf "Expected table name, got %A" item)
-             | rest ->
-                 Result([],rest)
-        parse tokenList true
+             | Token.content.Name(name) :: rest when nextItem -> parse (Literal(Token.content.Name(name)) :: outLst) rest false
+             | Token.content.Operator(op) :: rest when op = "," && not nextItem -> parse outLst rest true
+             | item :: rest when nextItem -> Error(sprintf "Expected table name, got %A" item)
+             | rest -> Result(outLst,rest)
+        parse [] tokenList true
         |> fun x ->
             match x with
-            | Result(nLst,tLst) -> Result(node.Branch(Key(From),nLst),tLst)
+            | Result(nLst,tLst) -> Result(node.Branch(Key(From),(List.rev nLst)),tLst)
             | Error (s) -> Error(s)
+
+    let ValueMatch (input:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
+        
 
     let ConditionsList (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
         let (|ConditionMatch|ConditionError|) (tokenList:Tokeniser.tokens) =
@@ -123,28 +109,58 @@ module AST =
                 Array.contains str compareOperators
             match tokenList with
             | Token.content.Name(name) :: Token.content.Operator(op) :: rest when isCompareOp op ->
-                match rest with
-                | Value (value,tail) ->
-                    [ Item(Name,Token.content.Name(name)) ; Item(Operator,Token.content.Operator(op)) ; value ]
-                    |> fun x -> ConditionMatch(x,tail)
-        let rec parse (tokenList:Tokeniser.tokens) =
+                rest
+                |> ValueMatch
+                |> fun x ->
+                    match x with
+                    | Result(value,tail) ->
+                        [ Item(Name,Token.content.Name(name)) ; Item(Operator,Token.content.Operator(op)) ; Item(Value,value) ]
+                        |> fun y -> ConditionMatch(y,tail)
+                    | Error(str) -> ConditionError(str)
+            | _ -> ConditionError("Invalid condition format")
+        let rec parse (outLst:node list) (tokenList:Tokeniser.tokens) : ReturnCode<node list*Tokeniser.tokens> =
             match tokenList with
             | Token.content.Name("AND") :: rest ->
                 match rest with
-                | ConditionMatch (nod,tail) -> Branch(And,nod) :: parse tail
+                | ConditionMatch (nod,tail) -> parse (Branch(And,nod) :: outLst) tail
                 | ConditionError str-> Error(str)
             | Token.content.Name("OR") :: rest ->
                 match rest with
-                | ConditionMatch (nod,tail) -> Branch(Or,nod) :: parse tail
+                | ConditionMatch (nod,tail) -> parse (Branch(Or,nod) :: outLst) tail
                 | ConditionError str-> Error(str)
-            | rest -> Result([],rest)
+            | rest -> Result(outLst,rest)
         match input with
-        | Token.content.Name("WHERE") :: rest -> Some(
+        | Token.content.Name("WHERE") :: rest -> Some
         | _ -> None
 
     let OrderList (input:Tokeniser.tokens) =
 
     let LimitItem (input:Tokeniser.tokens) =
+        let (|OffsetMatch|_|) (tokenList:Tokeniser.tokens) =
+            match tokenList with
+            | Token.content.Name("OFFSET") :: rest ->
+                match rest with
+                | Token.Value(Token.value.Integer(offsetVal)) :: tail -> Some(Result(offsetVal,tail))
+                | _ -> Some(Error("Expected offset value (integer)"))
+            | _ -> None
+        let successOutput (tLst:Tokeniser.tokens) (nLst:node list) =
+            Some(Result(Branch(Limit,nLst),tLst))
+        match input with
+        | Token.content.Name("LIMIT") :: rest ->
+            match rest with
+            | Token.Value(Token.value.Integer(limitVal)) :: tail ->
+                match tail with
+                | OffsetMatch(matchResult) ->
+                    match matchResult with
+                    | Error(str) -> Some(Error(str))
+                    | Result(offsetVal,remainList) ->
+                        [Item(Value,Literal(Token.content.Value(Token.value.Integer(limitVal)))) ; Item(Offset,Literal(Token.content.Value(Token.value.Integer(offsetVal))))]
+                        |> successOutput remainLsist
+                | _ ->
+                    [Item(Value,Literal(Token.content.Value(Token.value.Integer(limitVal))))]
+                    |> successOutput tail
+            | _ -> Some(Error("Expected limit value (integer)"))
+        | _ -> None
 
     let (|BranchMatch|_|) (tokenList:Tokeniser.tokens) =
         let output (key:Key) (result:ReturnCode<node*Tokeniser.tokens>) =
@@ -183,15 +199,18 @@ module AST =
         | _ -> None;
 
     let getTree (tokenList:Tokeniser.tokens) =
-        let rec parse (tokens:Tokeniser.tokens) : ReturnCode<node list> =
+        let rec parse (outLst:node list) (tokens:Tokeniser.tokens) : ReturnCode<node list> =
             match tokens with
-            | [] -> ReturnCode<node list>.Result([])
+            | [] -> Result(outLst)
             | BranchMatch returned ->
                 match returned with
-                | Result(key,body,rest) ->
-                    processConsOnReturn (node.Branch(key,body)) (parse rest)
+                | Result(key,body,rest) -> parse (node.Branch(key,body) :: outLst) rest
                 | Error(str) -> Error(str)
             | other ->
                 sprintf "Unrecognised sequence %A" other
-                |> fun x-> ReturnCode<node list>.Error(x)
-        parse tokenList
+                |> fun x-> Error(x)
+        parse [] tokenList
+        |> fun x ->
+            match x with
+            | Result(y) -> Result(List.rev y)
+            | error -> error
