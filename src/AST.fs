@@ -35,41 +35,46 @@ module AST =
         | Result of 'a
         | Error of string
 
+    let UnwrapResultThrough func (from:ReturnCode<'a>) =
+        match from with
+        | Result(res) -> Result(func res)
+        | Error(str) -> Error(str)
+
+    let UnwrapResultInto func (from:ReturnCode<'a>) =
+        match from with
+        | Result(res) -> func res
+        | Error(str) -> Error(str)
+
     let ReturnWrapper (func:(Tokeniser.tokens->ReturnCode<node*Tokeniser.tokens>)) (data:ReturnCode<node list*Tokeniser.tokens>) : ReturnCode<node list*Tokeniser.tokens> =
-        match data with
-        | Result(res) ->
-            snd res
+        let readInputSuccess result =
+            snd result
             |> func
-            |> fun x ->
-                match x with
-                | Result(nod,tLst) -> Result(((fst res) @ [nod]),tLst)
-                | Error(s) -> Error(s)
-        | Error(s) -> Error (s)
+            |> UnwrapResultThrough (fun (node,tLst) -> ((fst result) @ [node]),tLst)
+        data
+        |> UnwrapResultInto readInputSuccess
 
     let OptionalReturnWrapper (|MatchFunc|_|) (data:ReturnCode<node list*Tokeniser.tokens>) =
-        match data with
-        | Result(nLst,tLst) ->
-            match tLst with
+        let processReturn (nodeList,tokenList) =
+            match tokenList with
             | MatchFunc matchedResult ->
-                match matchedResult with
-                | Result(nod,newTLst) ->
-                    Result((nLst @ [nod]),newTLst)
-                | Error(s) -> Error(s)
-            | _ -> Result(nLst,tLst)
-        | Error(s) -> Error(s)
+                matchedResult
+                |> UnwrapResultThrough (fun (node,newTokenList) -> (nodeList @ [node]),newTokenList)
+            | _ -> Result(nodeList,tokenList)
+        data
+        |> UnwrapResultInto processReturn
 
     let ColumnWrappedList (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let (|FunctionMatch|_|) (lst:Tokeniser.tokens) =
             let validFunctions = [| "AVG" ; "MAX" ; "MIN" ; "SUM" ; "ROUND" |]
             match lst with
             | Token.content.Name(funName) :: Token.content.Operator("(") :: Token.content.Name(colName) :: Token.content.Operator(")") :: rest when Array.contains funName validFunctions ->
-                [node.Item(Key(Function),Literal(Token.content.Name(funName))) ; node.Item(Key(Name),Literal(Token.content.Name(colName)))]
+                [Item(Key(Function),Literal(Token.content.Name(funName))) ; Item(Key(Name),Literal(Token.content.Name(colName)))]
                 |> fun x -> Some(x,rest)
             | _ -> None
         let (|AliasMatch|_|) (lst:Tokeniser.tokens) =
             match lst with
             | Token.content.Name(colName) :: Token.content.Name("AS") :: Token.content.Literal(colAlias) :: rest ->
-                [node.Item(Key(Name),Literal(Token.content.Name(colName))) ; node.Item(Key(Alias),Literal(Token.content.Literal(colAlias)))]
+                [Item(Key(Name),Literal(Token.content.Name(colName))) ; Item(Key(Alias),Literal(Token.content.Literal(colAlias)))]
                 |> fun x -> Some(x,rest)
             | _ -> None
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextColumn:bool) : ReturnCode<node list*Tokeniser.tokens> =
@@ -81,23 +86,17 @@ module AST =
             | item :: rest when nextColumn -> Error(sprintf "Expected wrapped column name, got %A" item)
             | rest -> Result(outLst,rest)
         parse [] tokenList true
-        |> fun x ->
-            match x with
-            | Result(columnLst,rest) -> Result(node.Branch(Key(Column),(List.rev columnLst)),rest)
-            | Error(error) -> Error(error)
+        |> UnwrapResultThrough (fun (columnList,rest) -> Branch(Key(Column),(List.rev columnList)),rest)
 
     let TableList (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
              match lst with
              | Token.content.Name(name) :: rest when nextItem -> parse (Literal(Token.content.Name(name)) :: outLst) rest false
-             | Token.content.Operator(op) :: rest when op = "," && not nextItem -> parse outLst rest true
+             | Token.content.Operator(",") :: rest when not nextItem -> parse outLst rest true
              | item :: rest when nextItem -> Error(sprintf "Expected table name, got %A" item)
              | rest -> Result(outLst,rest)
         parse [] tokenList true
-        |> fun x ->
-            match x with
-            | Result(nLst,tLst) -> Result(node.Branch(Key(From),(List.rev nLst)),tLst)
-            | Error (s) -> Error(s)
+        |> UnwrapResultThrough (fun (nodeList,tokenList) -> Branch(Key(From),(List.rev nodeList)),tokenList)
 
     let ValueMatch (input:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         
@@ -199,7 +198,7 @@ module AST =
         | _ -> None;
 
     let getTree (tokenList:Tokeniser.tokens) =
-        let rec parse (outLst:node list) (tokens:Tokeniser.tokens) : ReturnCode<node list> =
+        let rec parse (outLst:node list) (tokens:Tokeniser.tokens) (vars:Variable.Variable.container) : ReturnCode<node list> =
             match tokens with
             | [] -> Result(outLst)
             | BranchMatch returned ->
@@ -209,7 +208,7 @@ module AST =
             | other ->
                 sprintf "Unrecognised sequence %A" other
                 |> fun x-> Error(x)
-        parse [] tokenList
+        parse [] tokenList Map.empty
         |> fun x ->
             match x with
             | Result(y) -> Result(List.rev y)
