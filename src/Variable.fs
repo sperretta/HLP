@@ -1,10 +1,10 @@
 ﻿namespace Variable
 module Variable =
-    type content =
-        | Integer of int
-        | Float of float
-        | Boolean of bool
-        | Byte of byte
-        | String of string
+    type varType =
+        | Integer
+        | Float
+        | Boolean
+        | Byte
+        | String
 
-    type container = Map<string,content>
+    type typeContainer = Map<string,varType>
