@@ -28,6 +28,7 @@ module AST =
         | Operator
         | Ascend
         | Descend
+        | Into
 
     type node =
         | Branch of Name:node * Children:node list
@@ -180,6 +181,13 @@ module AST =
             |> UnwrapResultThrough (fun (nodeList,newTokenList) -> Branch(Key(Order),List.rev nodeList),newTokenList,vars)
             |> fun x -> Some(x)
         | _ -> None
+
+    let TableName (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+        match tokenList with
+        | Token.content.Name(tableName) :: rest ->
+            Result(Item(Key(Into),Literal(Token.content.Name(tableName))),rest,vars)
+        | item :: rest -> Error(sprintf "Expected table name, got %A" item)
+        | [] -> Error("Expected table name, ran out of tokens")
         
     let TableList (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens*Variable.Variable.typeContainer> =
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
@@ -188,8 +196,12 @@ module AST =
              | Token.content.Operator(",") :: rest when not nextItem -> parse outLst rest true
              | item :: rest when nextItem -> Error(sprintf "Expected table name, got %A" item)
              | rest -> Result(outLst,rest)
-        parse [] tokenList true
-        |> UnwrapResultThrough (fun (nodeList,tokenList) -> Branch(Key(From),(List.rev nodeList)),tokenList,vars)
+        match tokenList with
+        | Token.content.Name("FROM") :: rest ->
+            parse [] rest true
+            |> UnwrapResultThrough (fun (nodeList,tokenList) -> Branch(Key(From),(List.rev nodeList)),tokenList,vars)
+        | item :: rest -> Error(sprintf "Expected FROM, got %A" item)
+        | [] -> Error("Expected FROM, ran out of tokens")
 
     let LimitItem (var:Variable.Variable.typeContainer) (input:Tokeniser.tokens) =
         let (|OffsetMatch|_|) (tokenList:Tokeniser.tokens) =
