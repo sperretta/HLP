@@ -188,6 +188,21 @@ module AST =
             Result(Item(Key(Into),Literal(Token.content.Name(tableName))),rest,vars)
         | item :: rest -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, ran out of tokens")
+
+    let ColumnNameList (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numColumns:int) =
+            match lst with
+            | Token.content.Name(name) :: rest when nextItem -> parse (Item(Key(Name),Literal(Token.content.Name(name))) :: outLst) rest false (numColumns+1)
+            | Token.content.Operator(",") :: rest when not nextItem -> parse outLst rest false numColumns
+            | item :: rest when nextItem -> Error(sprintf "Expected column name, got %A" item)
+            | [] when nextItem -> Error("Expected column name, ran out of tokens")
+            | rest -> Result(outLst,rest,numColumns)
+        match tokenList with
+        | Token.content.Operator("(") :: rest ->
+            parse [] rest true 0
+            |> UnwrapResultThrough (fun (nodeList,tokenList,numColumns) -> Branch(Key(Column),List.rev nodeList),tokenList,vars,numColumns)
+            |> fun x -> Some(x)
+        | _ -> None
         
     let TableList (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens*Variable.Variable.typeContainer> =
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
