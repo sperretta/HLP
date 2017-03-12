@@ -62,7 +62,7 @@ module AST =
         let passThroughAll = (constInputs.nodeList,constInputs.tokenList,constInputs.varList)
         (resultsFromFunc,passThroughAll)
     let VarsAndNumberInput = fun (nodeList,tokenList,vars,number:int option) ->
-        let inputArgs = vars,number.Value
+        let inputArgs = vars,number
         let outputs = {nodeList=nodeList ; tokenList=tokenList ; varList=vars ; number = number}
         (tokenList,inputArgs,outputs)
     let VarsAndNumberOutput constInputs =
@@ -70,7 +70,7 @@ module AST =
         let passThroughAll = (constInputs.nodeList,constInputs.tokenList,constInputs.varList,constInputs.number)
         (resultsFromFunc,passThroughAll)
     let NumberInput = fun (nodeList,tokenList,vars,number:int option) ->
-        let inputArgs = number.Value
+        let inputArgs = number
         let outputs = {nodeList=nodeList ; tokenList=tokenList ; varList=vars ; number = number}
         (tokenList,inputArgs,outputs)
     let NumberOutput constInputs =
@@ -159,11 +159,10 @@ module AST =
         | Token.content.Name(varName) :: rest -> Error(sprintf "Could not find declaration for variable %s" varName)
         | tok :: _ -> Error(sprintf "Invalid value %A" tok)
         | [] -> Error("Run out of tokens when expected value")
-        
 
     let ConditionsList (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
         let (|ConditionMatch|) (tokenList:Tokeniser.tokens) =
-            let isCompareOp str = 
+            let isCompareOp str =
                 let compareOperators = [| "=" ; "<>" ; "<" ; ">" ; "<=" ; ">=" |]
                 Array.contains str compareOperators
             let output name op (valueItem,tLst) =
@@ -229,7 +228,7 @@ module AST =
         | item :: rest -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, ran out of tokens")
 
-    let ColumnNameList () (tokenList:Tokeniser.tokens) =
+    let ColumnNameList () (tokenList:Tokeniser.tokens) = //?? Need to look for an end bracket
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numColumns:int) =
             match lst with
             | Token.content.Name(name) :: rest when nextItem -> parse (Item(Key(Name),Literal(Token.content.Name(name))) :: outLst) rest false (numColumns+1)
@@ -243,7 +242,7 @@ module AST =
             |> UnwrapResultThrough (fun (nodeList,tokenList,numColumns) -> Branch(Key(Column),List.rev nodeList),tokenList,numColumns)
             |> fun x -> Some(x)
         | _ -> None
-        
+
     let ValueList (vars:Variable.Variable.typeContainer,numColumns:int option) (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let (|ValueMatch|) = ValueItem
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numValues:int) =
@@ -263,24 +262,21 @@ module AST =
             | Some(numCol) when numCol = num -> true
             | None -> true
             | _ -> false
+        let output (nodeList,tokenList,numValues) =
+           if compareValues numValues then
+               Result(Branch(Key(Value),List.rev nodeList),tokenList)
+            else
+               Error(sprintf "Number of columns %u does not match number of values %u" numColumns.Value numValues)
         match tokenList with
         | Token.content.Name("VALUES") :: Token.content.Operator("(") :: rest ->
             parse [] rest true 0
-            |> 
-                
-
-
-
-             | Token.content.Name(name) :: rest when nextItem -> parse (Literal(Token.content.Name(name)) :: outLst) rest false
-             | Token.content.Operator(",") :: rest when not nextItem -> parse outLst rest true
-             | item :: rest when nextItem -> Error(sprintf "Expected table name, got %A" item)
-             | rest -> Result(outLst,rest)
-        match tokenList with
-        | Token.content.Name("FROM") :: rest ->
-            parse [] rest true
-            |> UnwrapResultThrough (fun (nodeList,tokenList) -> Branch(Key(From),(List.rev nodeList)),tokenList)
-        | item :: rest -> Error(sprintf "Expected FROM, got %A" item)
-        | [] -> Error("Expected FROM, ran out of tokens")
+            |> UnwrapResultInto output
+        | Token.content.Name("VALUES") :: item :: _ ->
+            Error(sprintf "Expected operator \"(\", got %A" item)
+        | item :: _ ->
+            Error(sprintf "Expected keyword \"VALUES\", got %A" item)
+        | [] ->
+            Error("Expected keyword \"VALUES\", ran out of tokens")
 
     let TableList () (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
