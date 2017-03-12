@@ -29,6 +29,7 @@ module AST =
         | Ascend
         | Descend
         | Into
+        | Type
 
     type node =
         | Branch of Name:node * Children:node list
@@ -342,7 +343,39 @@ module AST =
         let setParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
         let declareParse (tokenList:Tokeniser.tokens) =
+            let readTokens (vars:Variable.Variable.typeContainer) (tLst:Tokeniser.tokens) =
+                let isValidVarName (name:string) =
+                    not (vars.ContainsKey(name))
+                let validTypes =
+                    [
+                    "string" , Variable.Variable.String ;
+                    "byte" , Variable.Variable.Byte ;
+                    "int" , Variable.Variable.Integer ;
+                    "float" , Variable.Variable.Float ;
+                    "boolean" , Variable.Variable.Boolean
+                    ]
+                    |> Map.ofList
+                let isValidVarType (name:string) =
+                    Map.containsKey name validTypes
+                let updatedVarMap (name:string) (varType:string) =
+                    Map.add name validTypes.[varType] vars
+                match tLst with
+                | Token.content.Name(varName) :: Token.content.Name(varType) :: rest when isValidVarName varName && isValidVarType varType ->
+                    [Item(Key(Variable),Literal(Token.content.Name(varName))) ; Item(Key(Type),Literal(Token.content.Name(varType)))]
+                    |> fun nodeList -> Branch(Key(Declare),nodeList)
+                    |> fun newNode -> Result(newNode,rest,updatedVarMap varName varType)
+                | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when isValidVarName varName ->
+                    Error(sprintf "Cannot understand type %s" varType)
+                | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when isValidVarType varType ->
+                    Error(sprintf "Variable name \"%s\" already has been declared" varName)
+                | Token.content.Name(varName) :: item :: _ ->
+                    Error(sprintf "Expected variable type, got %A" item)
+                | item :: _ ->
+                    Error(sprintf "Expected variable name, got %A" item)
+                | [] ->
+                    Error("Expected variable name, ran out of tokens")
             Result([],tokenList,vars)
+            |> ReturnWrapper VarsInput VarsOutput readTokens
         let deleteParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
         match tokenList with
