@@ -8,6 +8,7 @@ module AST =
         | Set
         | Declare
         | Delete
+        | Create
         | From
         | Where
         | Order
@@ -144,6 +145,43 @@ module AST =
         parse [] tokenList true
         |> UnwrapResultThrough (fun (columnList,rest) -> Branch(Key(Column),(List.rev columnList)),rest)
 
+    let ColumnTypeList () (tokenList:Tokeniser.tokens) =
+        let (|ColumnTypeMatch|_|) (tLst:Tokeniser.tokens) =
+            match tLst with
+            | Token.content.Name(columnName) :: Token.content.Name(columnType) :: rest when Variable.Variable.isValidVarType columnType ->
+                [Item(Key(Name),Literal(Token.content.Name(columnName))) ; Item(Key(Type),Literal(Token.content.Name(columnType)))]
+                |> fun nodeList -> Branch(Key(Column),nodeList),rest
+                |> fun result -> Some(Result(result))
+            | Token.content.Name(_) :: Token.content.Name(columnType) :: _ ->
+                Some(Error(sprintf "Expected valid column type, got %s" columnType))
+            | Token.content.Name(_) :: item :: _ ->
+                Some(Error(sprintf "Expected valid column type, got %A" item))
+            | Token.content.Name(_) :: _ ->
+                Some(Error("Expected valid column type, ran out of tokens"))
+            | _ ->
+                None
+        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
+            match lst with
+            | ColumnTypeMatch matchedOutput when nextItem ->
+                matchedOutput
+                |> UnwrapResultInto (fun (newNode,newTokenList) -> parse (newNode :: outLst) newTokenList false)
+            | Token.content.Operator(",") :: rest when not nextItem ->
+                parse outLst rest true
+            | Token.content.Operator(")") :: rest when not nextItem ->
+                Result(outLst,rest)
+            | other ->
+                Error(sprintf "Expected column type list, got %A" other)
+        match tokenList with
+        | Token.content.Operator("(") :: rest ->
+            parse [] rest true
+            |> UnwrapResultThrough (fun (nodeList,tokenList) -> Branch(Key(Value),List.rev nodeList),tokenList)
+        | Token.content.Operator(op) :: _ ->
+            Error(sprintf "Expected \"(\", got %s" op)
+        | item :: _ ->
+            Error(sprintf "Expected \"(\", got %A" item)
+        | [] ->
+            Error("Expected \"(\", ran out of tokens")
+
     let ValueItem (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let output (tLst:Tokeniser.tokens) (nod:node) =
             Result(nod,tLst)
@@ -225,9 +263,20 @@ module AST =
     let TableName () (tokenList:Tokeniser.tokens) =
         match tokenList with
         | Token.content.Name(tableName) :: rest ->
-            Result(Item(Key(Into),Literal(Token.content.Name(tableName))),rest)
+            Result(Item(Key(Name),Literal(Token.content.Name(tableName))),rest)
         | item :: rest -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, ran out of tokens")
+
+    let WrappedTableName (wrapperWord:string) () (tokenList:Tokeniser.tokens) =
+        match tokenList with
+        | Token.content.Name(word) :: rest when word = wrapperWord ->
+            TableName () rest
+        | Token.content.Name(word) :: _ ->
+            Error(sprintf "Expected keyword \"%s\", got %s" wrapperWord word)
+        | item :: _ ->
+            Error(sprintf "Expected keyword \"%s\", got %A" wrapperWord item)
+        | [] ->
+            Error(sprintf "Expected keyword \"%s\", ran out of tokens" wrapperWord)
 
     let ColumnNameList () (tokenList:Tokeniser.tokens) = //?? Need to look for an end bracket
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numColumns:int) =
@@ -334,7 +383,7 @@ module AST =
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         let insertParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
-            |> ReturnWrapper NoVarsInput NoVarsOutput TableName
+            |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "INTO")
             |> OptionalReturnWrapper NoVarsInput NumberOutput ColumnNameList
             |> ReturnWrapper VarsAndNumberInput NoVarsOutput ValueList
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
@@ -343,41 +392,31 @@ module AST =
         let setParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
         let declareParse (tokenList:Tokeniser.tokens) =
-            let readTokens (vars:Variable.Variable.typeContainer) (tLst:Tokeniser.tokens) =
-                let isValidVarName (name:string) =
-                    not (vars.ContainsKey(name))
-                let validTypes =
-                    [
-                    "string" , Variable.Variable.String ;
-                    "byte" , Variable.Variable.Byte ;
-                    "int" , Variable.Variable.Integer ;
-                    "float" , Variable.Variable.Float ;
-                    "boolean" , Variable.Variable.Boolean
-                    ]
-                    |> Map.ofList
-                let isValidVarType (name:string) =
-                    Map.containsKey name validTypes
-                let updatedVarMap (name:string) (varType:string) =
-                    Map.add name validTypes.[varType] vars
-                match tLst with
-                | Token.content.Name(varName) :: Token.content.Name(varType) :: rest when isValidVarName varName && isValidVarType varType ->
-                    [Item(Key(Variable),Literal(Token.content.Name(varName))) ; Item(Key(Type),Literal(Token.content.Name(varType)))]
-                    |> fun nodeList -> Branch(Key(Declare),nodeList)
-                    |> fun newNode -> Result(newNode,rest,updatedVarMap varName varType)
-                | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when isValidVarName varName ->
-                    Error(sprintf "Cannot understand type %s" varType)
-                | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when isValidVarType varType ->
-                    Error(sprintf "Variable name \"%s\" already has been declared" varName)
-                | Token.content.Name(varName) :: item :: _ ->
-                    Error(sprintf "Expected variable type, got %A" item)
-                | item :: _ ->
-                    Error(sprintf "Expected variable name, got %A" item)
-                | [] ->
-                    Error("Expected variable name, ran out of tokens")
-            Result([],tokenList,vars)
-            |> ReturnWrapper VarsInput VarsOutput readTokens
+            let isValidVarName (name:string) =
+                not (vars.ContainsKey(name))
+            let updatedVarMap (name:string) (varType:string) =
+                Map.add name Variable.Variable.validTypes.[varType] vars
+            match tokenList with
+            | Token.content.Name(varName) :: Token.content.Name(varType) :: rest when isValidVarName varName && Variable.Variable.isValidVarType varType ->
+                [Item(Key(Variable),Literal(Token.content.Name(varName))) ; Item(Key(Type),Literal(Token.content.Name(varType)))]
+                |> fun nodeList -> Result(nodeList,rest,updatedVarMap varName varType)
+            | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when isValidVarName varName ->
+                Error(sprintf "Cannot understand type %s" varType)
+            | Token.content.Name(varName) :: Token.content.Name(varType) :: _ when Variable.Variable.isValidVarType varType ->
+                Error(sprintf "Variable name \"%s\" already has been declared" varName)
+            | Token.content.Name(varName) :: item :: _ ->
+                Error(sprintf "Expected variable type, got %A" item)
+            | item :: _ ->
+                Error(sprintf "Expected variable name, got %A" item)
+            | [] ->
+                Error("Expected variable name, ran out of tokens")
         let deleteParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
+        let createParse (tokenList:Tokeniser.tokens) =
+            Result([],tokenList,vars)
+            |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "FROM")
+            |> ReturnWrapper NoVarsInput NoVarsOutput ColumnTypeList
+            |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         match tokenList with
         | item :: rest ->
             match item with
@@ -387,6 +426,7 @@ module AST =
             | Token.content.Name("SET") -> Some(output Set (setParse rest))
             | Token.content.Name("DECLARE") -> Some(output Declare (declareParse rest))
             | Token.content.Name("DELETE") -> Some(output Delete (deleteParse rest))
+            | Token.content.Name("CREATE") -> Some(output Create (createParse rest))
             | _ -> None;
         | _ -> None;
 
