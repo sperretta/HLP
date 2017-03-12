@@ -428,7 +428,7 @@ module AST =
             |> ReturnWrapper VarsInput NoVarsOutput SetColumnList
             |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
-        let setParse (tokenList:Tokeniser.tokens) =
+        let setParse (tokenList:Tokeniser.tokens) = //??
             Result([],tokenList,vars)
         let declareParse (tokenList:Tokeniser.tokens) =
             let isValidVarName (name:string) =
@@ -451,6 +451,8 @@ module AST =
                 Error("Expected variable name, ran out of tokens")
         let deleteParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
+            |> ReturnWrapper NoVarsInput NoVarsOutput TableList
+            |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
         let createParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "FROM")
