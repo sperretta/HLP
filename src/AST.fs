@@ -199,6 +199,41 @@ module AST =
         | tok :: _ -> Error(sprintf "Invalid value %A" tok)
         | [] -> Error("Run out of tokens when expected value")
 
+    let SetColumnList (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+        let rec parse (outLst:node list) (tLst:Tokeniser.tokens) (nextItem:bool) =
+            let makeNode colName (value,newTokenList) =
+                Branch(Key(Column),[Item(Key(Name),Literal(Token.content.Name(colName))) ; value])
+                |> fun newNode -> parse (newNode :: outLst) newTokenList false
+            match tLst with
+            | Token.content.Name(columnName) :: Token.content.Operator("=") :: rest when nextItem ->
+                rest
+                |> ValueItem vars
+                |> UnwrapResultInto (makeNode columnName)
+            | Token.content.Name(_) :: Token.content.Operator(op) :: _ when nextItem ->
+                Error(sprintf "Expected operator =, got operator %s" op)
+            | Token.content.Name(_) :: item :: _ when nextItem ->
+                Error(sprintf "Expected operator =, got %A" item)
+            | item :: _ when nextItem ->
+                Error(sprintf "Expected column name, got %A" item)
+            | [] when nextItem ->
+                Error("Expected column name, ran out of tokens")
+            | Token.content.Operator(",") :: rest when not nextItem ->
+                parse outLst rest true
+            | rest when not nextItem ->
+                Result(outLst,rest)
+            | _ ->
+                Error("Unknown error in SetColumnList")
+        match tokenList with
+        | Token.content.Name("SET") :: rest ->
+            parse [] rest true
+            |> UnwrapResultThrough (fun (nodeList,newTokenList) -> Branch(Key(Set),List.rev nodeList),newTokenList)
+        | Token.content.Name(word) :: _ ->
+            Error(sprintf "Expected keyword SET, got %s" word)
+        | item :: _ ->
+            Error(sprintf "Expected keyword SET, got %A" item)
+        | [] ->
+            Error("Expected keyword SET, ran out of tokens")
+
     let ConditionsList (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
         let (|ConditionMatch|) (tokenList:Tokeniser.tokens) =
             let isCompareOp str =
@@ -389,6 +424,10 @@ module AST =
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         let updateParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
+            |> ReturnWrapper NoVarsInput NoVarsOutput TableName
+            |> ReturnWrapper VarsInput NoVarsOutput SetColumnList
+            |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
+            |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         let setParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
         let declareParse (tokenList:Tokeniser.tokens) =
