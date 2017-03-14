@@ -1,6 +1,23 @@
-To be edited
-============
+SharpData
+=========
 Based on Ton Clarke's Fable Electron Quick Start project.
+*Modified 14/3/2017 by Sigrid Passano Hellan*
+
+Required changes
+================
+* Decide on licence
+* Add repository
+* Finish editing README
+
+To run
+======
+Either "yarn" to compile and then "yarn go" to start electron app, or
+"yarn run watch" to compile thr program and automatically update it
+when the source changes (much faster for development), and then run in-bowser by opening
+"index.html" in the "dist" folder. 
+
+Text below this still to be edited
+============
 
 Fable Electron Quick Start
 ==========================
