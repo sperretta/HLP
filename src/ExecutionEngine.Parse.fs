@@ -3,8 +3,30 @@ module Parse =
     open Parser.ControlAndTypes
     open ReturnControl.Main
 
+    open Main
+
+    let interpretWrappedColumnList columnLeaves =
+        let rec parse branches =
+            match branches with
+            | Item(Key(Column),columnWrappedName) :: rest ->
+                columnWrappedName
+                match rest with
+                | 
+
     let interpetSelect branches variables =
         open Select
+        let unwrapChildren =
+            match branches with
+            | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
+                (unwrapWrappedColumnList wrappedColumnList),(unwrapTableNameList tableNameList),optionalLeaves
+            | Branch(Key(Column),_) :: item :: _ ->
+                Error (sprintf "Expected from branch, got %A" item)
+            | item :: _ ->
+                Error (sprintf "Expected column branch, got %A" item)
+            | [] ->
+                Error("Expected column branch, ran out of tree")
+                
+
     let interpetInsert branches variables =
         open Insert
     let interpetUpdate branches variables =
@@ -19,7 +41,7 @@ module Parse =
         open Create
 
     let runThroughTree (tree:node list) =
-        let rec parse (branches:node list) (varMap:Variable.Variable.contentContainer) (returnTableList:returnTableListType) = //Returntabletype list =
+        let rec parse (branches:node list) (varMap:Variable.Variable.contentsContainer) (returnTableList:returnTableListType) = //Returntabletype list =
             match branches with
             | Branch(Key(Select),children) :: rest ->
                 interpretSelect children varMap
