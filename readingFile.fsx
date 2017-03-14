@@ -5,8 +5,8 @@
     type IList = INode of ParName: string * Value: myData * Prev : ref<IList> * Tl : ref<IList> | INilLow // A node has the parameter name (column name), the parameter value
                                                                                                           // and links to the previous and next nodes
     type topList = Node of lowList : ref<IList> * Tl : ref<topList> | INilTop                             // The nodes of the top-level list have refs to low-level lists.
-    type data = ref<topList>                                                                              // Holds all the data in the database
-     
+    type data = ref<topList>                                                                              // Holds all the data in the table
+    type TableList = TableNode of topList : ref<topList> * TableName : string * Tl : ref<TableList> | INilTable // Holds all the tables in the database.
 
 
     let head1  = ref INilLow
@@ -126,12 +126,17 @@
         |> Array.toList |> List.filter (fun x -> x <> "")
         |> strProcess
 
+    let cleanLine (inpString : string) =
+        inpString.Split [|' ';'\t'|] 
+        |> Array.toList |> List.filter (fun x -> x <> "")
 
     let readIn mySeq =
         mySeq |> Seq.toList |> List.map readInLine
 
     let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\dataFile.txt"
     let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFile.txt"
+    let someStruct = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\someStructureDataFile.txt"
+    let structPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredDataFile.txt"
 
     let readFile pathString = IO.File.ReadLines pathString
 
@@ -142,6 +147,46 @@
 
     let k = readIn fileLines
     let j = ReadInData myPath
+
+    let readTable inpStrings =
+        let splitStrings = List.map cleanLine inpStrings
+        let colNames = List.head splitStrings
+        let colData = List.tail inpStrings |> List.map readInLine
+        buildData colNames colData
+
+    let exCol2 = ["Names"; "String"; "ID"; "Int"; "Credit"; "Float"; "Hex"; "Byte"; "Member"; "Bool"]
+    let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
+    readTable testSeparate
+    buildData exCol2 j
+
+    let testMultiple = ["TABLE";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Subject String"; "String Some Math"; "String Some Music"]
+
+
+    let rec allInOneTable inpStrings rowList =
+        match inpStrings with
+        | [] -> (List.rev rowList,[])
+        | a :: tail when a = "TABLE" -> (List.rev rowList,inpStrings)
+        | a :: tail -> allInOneTable tail (a :: rowList)
+
+    let rec wrapper inpStrings tableList =
+        let (table, strings) = allInOneTable inpStrings []
+        match strings with
+        | [] -> table :: tableList 
+        | "TABLE" :: tail -> wrapper tail (table::tableList)
+
+    wrapper ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"] []
+
+    let sortIntoMultiple inpStrings = 
+        let tableLists = []
+        match inpStrings with 
+        | a :: tail when a = "TABLE" -> List.rev (wrapper tail [])
+
+    sortIntoMultiple ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"]
+    sortIntoMultiple testMultiple
+    readFile structPath |> Seq.toList |> sortIntoMultiple |> List.map readTable
+        
+    readFile someStruct |> Seq.toList |> readTable
+    //type TableList = TableNode of topList : ref<topList> * TableName : string * Tl : ref<TableList> | INilTable
 
     let s = strBuilder (List.head j )
     let t = buildLine s

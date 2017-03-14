@@ -1,0 +1,5 @@
+Names String ID Int Credit Float Hex Byte Member Bool
+String	Some	Orlando	Int	Some	45	Float	Some	0.2     Byte	Some	0x23	Bool None
+String	Some	Rebecca	Int	Some	17	Float	Some	3.14159	Byte	None			Bool Some True
+String	Some	Ada		Int	None		Float	Some	2.718   Byte	None			Bool Some False
+String	Some	Alice   Int	Some	18	Float	Some	1.001   Byte	Some	0xFF	Bool None
