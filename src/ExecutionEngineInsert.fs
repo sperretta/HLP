@@ -121,6 +121,41 @@ module ExecutionEngineInsert =
         | None -> []
         | Some row -> extractColumnNamesHelper2 row
 
+    let rec extractColumnTypesHelperCopy thisRow columnNames =
+        match (!thisRow, columnNames) with
+        | (INilBox,_) -> []
+        | (BoxNode(parName,parVal,_,rowTail), colName :: colTail) when parName = colName 
+            -> parName :: (extractColumnNamesHelper1 parVal) :: extractColumnTypesHelper rowTail colTail
+        | (BoxNode(parName,parVal,_,rowTail), _)
+            -> parName :: (extractColumnNamesHelper1 parVal) :: extractColumnTypesHelper rowTail columnNames
+
+    let extractColumnTypesHelper2 = function
+    | String _ -> String None
+    | Int _ -> Int None
+    | Float _ -> Float None
+    | Byte _ -> Byte None
+    | Bool _ -> Bool None
+
+    let rec extractColumnTypesHelper1 thisRow columnNames columnValues =
+        match (!thisRow, columnNames, columnValues) with
+        | (INilBox,_,_) -> []
+        | (BoxNode(parName,parVal,_,rowTail), colName :: colNameTail, colVal :: colValTail) when parName = colName 
+            -> (parName, (extractColumnNamesHelper1 parVal), colVal) :: extractColumnTypesHelper1 rowTail colNameTail colValTail
+        | (BoxNode(parName,parVal,_,rowTail),_,_)
+            -> (parName, (extractColumnNamesHelper1 parVal), extractColumnTypesHelper2 parVal) :: extractColumnTypesHelper1 rowTail columnNames columnValues
+
+    let splitIntoNamesAndValues namesAndValues =
+        List.foldBack (fun  (parName, parType, parVal) (colAcc, valAcc) -> (parName :: parType :: colAcc, parVal :: valAcc) ) namesAndValues ([],[])
+
+    splitIntoNamesAndValues [("Name", "String", String None); ("ID", "Int", Int None)]
+  //  ParName: string * Value: boxData * Prev : ref<boxList> * Tl : ref<boxList> | INilBox
+    let extractColumnTypes rowOne columnNames columnValues =
+        extractColumnTypesHelper1 rowOne columnNames columnValues |> splitIntoNamesAndValues
+        
+    match !myTable with
+    | RowNode (row, _) ->
+        extractColumnTypes row [] []
+
     extractColumnNames myTable    
 
     let testColumnNames = ["Names"; "String"; "ID"; "Int"]
@@ -142,3 +177,12 @@ module ExecutionEngineInsert =
     addToTableWrapper myTable [] testValueList
     addToTableWrapper myTable testColumnNames testValueList
     myTable
+
+    
+    (* Todo:
+    Function to choose table by tableName
+    Function to get columntypes by columnname                               DONE
+    Allow for only some values to be given -> rest set as None              DONE
+    Put into a common function that takes tableName, columnNameList and valueList 
+    Give out an error message if some column names / column values are ignored, or just ignore everything?*)
+    //let insert tableName columnNameList valueList
