@@ -17,7 +17,8 @@ module databaseStructure =
     type rowList = RowNode of BoxList : ref<boxList> * Tl : ref<rowList> | INilRow                            
     type table = ref<rowList>  // Holds all the data in the table
     // Holds all the tables in the database.
-    type tableList = TableNode of topList : ref<rowList> * TableName : string * Tl : ref<tableList> | INilTable 
+    // A node has a table, a table name, a list with column names and types, and a tail pointing to the next table in the database.
+    type tableList = TableNode of topList : ref<rowList> * TableName : string * Columns : (string * boxData) list * Tl : ref<tableList> | INilTable 
     type database = ref<tableList>
 
     // Get the tail from a table (entry after last row)
@@ -36,5 +37,5 @@ module databaseStructure =
     let rec chooseTable thisDatabase tableName =
         match !thisDatabase with
         | INilTable -> None
-        | TableNode (thisTable, thisName, _) when thisName = tableName -> Some thisTable
-        | TableNode (_, _, otherTables) -> chooseTable otherTables tableName
+        | TableNode (thisTable, thisName, _, _) when thisName = tableName -> Some thisTable
+        | TableNode (_, _, _, otherTables) -> chooseTable otherTables tableName
