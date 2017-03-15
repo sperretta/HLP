@@ -29,6 +29,13 @@ module ExecutionEngineInsert =
         | INilRow -> None
         | RowNode (row, _) -> Some row
 
+    let rec chooseTable thisDatabase tableName =
+        match !thisDatabase with
+        | INilTable -> None
+        | TableNode (thisTable, thisName, _) when thisName = tableName -> Some thisTable
+        | TableNode (_, _, otherTables) -> chooseTable otherTables tableName
+
+
     let helperFunc list f F caller emes=
         match list with
         | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
@@ -101,6 +108,7 @@ module ExecutionEngineInsert =
 
     let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
     let myTable = readTable testSeparate
+    let tableTwo = readTable testSeparate
     rowListFirstRow myTable
 
     let extractColumnNamesHelper1 = function
@@ -156,7 +164,8 @@ module ExecutionEngineInsert =
     | RowNode (row, _) ->
         extractColumnTypes row [] []
 
-    extractColumnNames myTable    
+    extractColumnNames myTable
+    extractColumnTypes myTable    
 
     let testColumnNames = ["Names"; "String"; "ID"; "Int"]
     let testValueList = [String (Some "George"); Int (Some 17)]
@@ -177,12 +186,32 @@ module ExecutionEngineInsert =
     addToTableWrapper myTable [] testValueList
     addToTableWrapper myTable testColumnNames testValueList
     myTable
+    tableTwo
+    let tail = ref INilTable
+    let snd = ref (TableNode (tableTwo, "Second Table", tail))
+    let first = ref (TableNode (myTable, "First Table", snd))
 
+    chooseTable first "First Table"
+    chooseTable first "Second Table"
+    chooseTable first "Third Table"
     
+    let insert thisDatabase tableName columnNameList valueList =
+        let thisTable = chooseTable thisDatabase tableName
+        match thisTable with
+        | None -> printfn "Error: Table specified not found."
+        | Some thisTable -> 
+            match !thisTable with
+            | INilRow -> printfn "Error: Insert to empty table not yet implemented."
+            | RowNode (row, _) ->
+                let (colNamesTypes, colValues) = extractColumnTypes row columnNameList valueList
+                addToTable thisTable colNamesTypes colValues
+
+    insert first "Second Table" ["Names"] [String (Some "Harry")]
+
+    first
     (* Todo:
-    Function to choose table by tableName
+    Function to choose table by tableName                                   DONE
     Function to get columntypes by columnname                               DONE
     Allow for only some values to be given -> rest set as None              DONE
     Put into a common function that takes tableName, columnNameList and valueList 
-    Give out an error message if some column names / column values are ignored, or just ignore everything?*)
-    //let insert tableName columnNameList valueList
+    Give out an error message if some column names / column values are ignored, or just ignore everything, and give error message *)
