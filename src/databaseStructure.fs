@@ -3,20 +3,29 @@ module databaseStructure =
 
     open System.IO
     open System
-    type myData = | String of Option<string> | Int of Option<int> | Float of Option<float>                // To be extended when the wanted data types have been decided
-                  | Byte of Option<byte>     | Bool of Option<bool>
-    type IList = INode of ParName: string * Value: myData * Prev : ref<IList> * Tl : ref<IList> | INilLow // A node has the parameter name (column name), the parameter value
-                                                                                                          // and links to the previous and next nodes
-    type topList = Node of lowList : ref<IList> * Tl : ref<topList> | INilTop                             // The nodes of the top-level list have refs to low-level lists.
-    type data = ref<topList>                                                                              // Holds all the data in the table
-    type TableList = TableNode of topList : ref<topList> * TableName : string * Tl : ref<TableList> | INilTable // Holds all the tables in the database.
 
-    let rec topListLast thisList : data =
-        match !thisList with
-        | INilTop -> thisList
-        | Node (_, tail) -> topListLast tail
+    type boxData = | String of Option<string>  // To be extended when the wanted data types have been decided
+                   | Int of Option<int> 
+                   | Float of Option<float>                
+                   | Byte of Option<byte>     
+                   | Bool of Option<bool>
 
-    let topListFirstRow (thisList : data) =
+    // A node has the parameter name (column name), the parameter value and links to the previous and next nodes
+    type boxList = BoxNode of ParName: string * Value: boxData * Prev : ref<boxList> * Tl : ref<boxList> | INilBox 
+    type row = ref<boxList>                                                                                       
+    // The nodes of the table-level list (rowList) have refs to the row-level lists (boxList).
+    type rowList = RowNode of BoxList : ref<boxList> * Tl : ref<rowList> | INilRow                            
+    type table = ref<rowList>  // Holds all the data in the table
+    // Holds all the tables in the database.
+    type tableList = TableNode of topList : ref<rowList> * TableName : string * Tl : ref<tableList> | INilTable 
+    type database = ref<tableList>
+
+    let rec rowListLast thisList : table =
         match !thisList with
-        | INilTop -> None
-        | Node (row, _) -> Some row
+        | INilRow -> thisList
+        | RowNode (_, tail) -> rowListLast tail
+
+    let rowListFirstRow (thisList : table) =
+        match !thisList with
+        | INilRow -> None
+        | RowNode (row, _) -> Some row
