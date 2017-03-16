@@ -165,7 +165,7 @@ module ExecutionEngineInsert =
         let nextNode = ref INilBox
         UnwrapResultThrough (fun () -> nextNode) (newRowRec columnTypesNames columnValues firstHead nextNode)
 
-    let addToTableTwo thisTable (colTypesNames, valueList) = 
+    let addToTable thisTable (colTypesNames, valueList) = 
         let newRow = newRow colTypesNames valueList
         UnwrapResultThrough (fun createdRow -> listBuilder (rowListLast thisTable) createdRow |> ignore) newRow
     
@@ -181,9 +181,9 @@ module ExecutionEngineInsert =
     let splitIntoLists colTypesValues =
         List.foldBack (fun (colName, colType) (accName, accType) -> (colName :: accName, colType :: accType) ) colTypesValues ([], []) 
 
-    let addToTableTwoWrapper thisTable refColumns columnList valueList =
+    let addToTableWrapper thisTable refColumns columnList valueList =
         match columnList, List.length refColumns, List.length valueList with
-            | [], la, lb when la = lb -> addToTableTwo thisTable (refColumns, valueList)
+            | [], la, lb when la = lb -> addToTable thisTable (refColumns, valueList)
             | [], _, _ -> Error("INSERT: When column names are unspecified the number of inputs must match the number of columns in the table. ")
             | _ -> 
                 let columnSpec = getAllColTypesValues refColumns columnList valueList
@@ -191,16 +191,16 @@ module ExecutionEngineInsert =
                     | Error emes -> Error emes
                     | Result typesValues ->
                         let (columns, values) = splitIntoLists typesValues
-                        addToTableTwo thisTable (columns, values) 
+                        addToTable thisTable (columns, values) 
 
-    let insertTwo tableName columnList valueList thisDatabase =
+    let insert tableName columnList valueList thisDatabase =
         let thisTableOption = chooseTable thisDatabase tableName
         let typeSpecOption = getTableTypes thisDatabase tableName
         match thisTableOption, typeSpecOption with
         | None,_ -> Error("INSERT: Table specified not found")
         | _, None -> Error("INSERT: Table specified not found")
         | Some thisTable, Some typeSpec -> 
-            addToTableTwoWrapper thisTable typeSpec columnList valueList
+            addToTableWrapper thisTable typeSpec columnList valueList
             
              
 
@@ -210,9 +210,6 @@ module ExecutionEngineInsert =
     let tableTwo = readTable testSeparate
     rowListFirstRow myTable
     
-    //addToTable myTable testColumnNames testValueList
-    //addToTableWrapper myTable [] testValueList
-    //addToTableWrapper myTable testColumnNames testValueList
     myTable
     tableTwo
     let tail = ref INilTable
@@ -226,9 +223,8 @@ module ExecutionEngineInsert =
     chooseTable first "Third Table"
     getTableTypes first "First Table"
     getTableTypes first "Third Table"
-    //colNamesTypesFromDB first "First Table"
 
-    insertTwo "Second Table" ["Names"] [String (Some "Harry")] first
-    insertTwo "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
+    insert "Second Table" ["Names"] [String (Some "Harry")] first
+    insert "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
 
     first // see results
