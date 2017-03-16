@@ -55,6 +55,10 @@ module ExecutionEngineInsert =
         | Error(str) -> Error(str)
 
 
+
+    //////////////////////////////////////////////////////////////////////
+    // Used for building tests.
+
     let helperFunc list f F caller emes=
         match list with
         | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
@@ -99,6 +103,7 @@ module ExecutionEngineInsert =
         nextNode
 
 
+
     let listBuilder acc lowList =
         let newNode = ref INilRow
         acc := RowNode (lowList, newNode)
@@ -125,6 +130,44 @@ module ExecutionEngineInsert =
         let colData = List.tail inpStrings |> List.map readInLine
         buildData colNames colData
 
+
+    // Used for building tests.
+    //////////////////////////////////////////////////////////////////////
+
+
+    
+    let rec getTableTypes thisDatabase tableName =
+        match !thisDatabase with
+        | INilTable -> None
+        | TableNode (_, thisName, theseColumns, _) when thisName = tableName -> Some theseColumns
+        | TableNode (_, _, _, otherTables) -> getTableTypes otherTables tableName
+
+
+    let compareTypes valOne valTwo = 
+        match (valOne, valTwo) with
+        | (String _, String _) -> true
+        | (Int _   , Int _   ) -> true
+        | (Float _,  Float _ ) -> true
+        | (Byte _,   Byte _  ) -> true
+        | (Bool _,   Bool _  ) -> true
+        | (_, _) -> false
+
+
+    let rec newRowRec columnTypesNames columnValues prevNode nextNode =
+        match (columnTypesNames, columnValues) with
+        | ([],[]) -> Result ()
+        | ((colName, colType) :: otherTypesNames, thisVal :: otherValues) when compareTypes colType thisVal -> 
+            let newNode = ref INilBox
+            nextNode := BoxNode (colName, thisVal, prevNode, newNode)
+            newRowRec otherTypesNames otherValues nextNode newNode
+        | ((colName, colType) :: otherTypesNames, thisVal :: otherValues) -> 
+            Error("Create new row: the given column values don't match the column types.")
+        | _ -> Error("Create new row: column specification and new values don't have the same length.")
+
+    let newRow columnTypesNames columnValues =
+        let firstHead = ref INilBox
+        let nextNode = ref INilBox
+        UnwrapResultThrough (fun () -> nextNode) (newRowRec columnTypesNames columnValues firstHead nextNode)
 
 
     let extractColumnNamesHelper1 = function
@@ -189,6 +232,56 @@ module ExecutionEngineInsert =
         | [] -> addToTable thisTable (extractColumnNames thisTable) valueList
         | _ -> addToTable thisTable columnList valueList
 
+    (* Functions needed:
+        Something to take the input table, and return the changed table
+        Something to take a list of column names and values given as input,
+        and return a list of column names & types, and values, including all columns. *)
+
+    let addToTableTwo thisTable (colTypesNames, valueList) = 
+        let newRow = newRow colTypesNames valueList
+        UnwrapResultThrough (fun createdRow -> listBuilder (rowListLast thisTable) createdRow |> ignore) newRow
+    
+    let rec getAllColTypesValues refColumns columnList valueList =
+        match (refColumns, columnList, valueList) with
+        | ([], [], []) -> Result []
+        | ([], _ , _) -> Error("INSERT: At least one of the given column names don't match the given table.")
+        | ((refName, refType) :: otherRefColumns, colName :: otherNames, thisValue :: otherValues) when refName = colName ->
+            UnwrapResultThrough (fun restOfList -> ((refName, refType), thisValue) :: restOfList ) (getAllColTypesValues otherRefColumns otherNames otherValues)
+        | ((refName, refType) :: otherRefColumns, _, _) ->
+            UnwrapResultThrough (fun restOfList -> ((refName, refType), refType) :: restOfList ) (getAllColTypesValues otherRefColumns columnList valueList)
+            //Result (((refName, refType), thisValue) :: (getAllColTypesValues otherRefColumns otherNames otherValues) )
+
+
+    let splitIntoLists colTypesValues =
+        List.foldBack (fun (colName, colType) (accName, accType) -> (colName :: accName, colType :: accType) ) colTypesValues ([], []) 
+
+    let addToTableTwoWrapper thisTable refColumns columnList valueList =
+        match columnList, List.length refColumns, List.length valueList with
+            | [], la, lb when la = lb -> addToTableTwo thisTable (refColumns, valueList)
+            | [], _, _ -> Error("INSERT: When column names are unspecified the number of inputs must match the number of columns in the table. ")
+            | _ -> 
+                let columnSpec = getAllColTypesValues refColumns columnList valueList
+                match columnSpec with
+                    | Error emes -> Error emes
+                    | Result typesValues ->
+                        let (columns, values) = splitIntoLists typesValues
+                        addToTableTwo thisTable (columns, values) 
+        
+            
+
+
+    let addToTableTwoWrapperOld thisTable refColumns columnList valueList =
+        let columnSpec = getAllColTypesValues refColumns columnList valueList
+        match columnSpec with
+        | Error emes -> Error emes
+        | Result typesValues ->
+            match columnList, List.length refColumns, List.length valueList with
+            | [], la, lb when la = lb -> addToTableTwo thisTable (refColumns, valueList)
+            | [], _, _ -> Error("INSERT: When column names are unspecified the number of inputs must match the number of columns in the table. ")
+            | _ -> 
+                let (columns, values) = splitIntoLists typesValues
+                addToTableTwo thisTable (columns, values)         
+
     let splitTypesNames typesAndNames =
         List.foldBack (fun  (parName, parType) (nameAcc, typeAcc) -> (parName :: nameAcc, parType :: typeAcc) ) typesAndNames ([],[])
 
@@ -220,7 +313,16 @@ module ExecutionEngineInsert =
                 addToTable thisTable colNamesTypes colValues
                 Result ()
 
-
+    let insertTwo tableName columnList valueList thisDatabase =
+        let thisTableOption = chooseTable thisDatabase tableName
+        let typeSpecOption = getTableTypes thisDatabase tableName
+        match thisTableOption, typeSpecOption with
+        | None,_ -> Error("INSERT: Table specified not found")
+        | _, None -> Error("INSERT: Table specified not found")
+        | Some thisTable, Some typeSpec -> 
+            addToTableTwoWrapper thisTable typeSpec columnList valueList
+            
+             
 
     // Testingcode
     let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
@@ -242,10 +344,12 @@ module ExecutionEngineInsert =
     chooseTable first "First Table"
     chooseTable first "Second Table"
     chooseTable first "Third Table"
+    getTableTypes first "First Table"
+    getTableTypes first "Third Table"
     colNamesTypesFromDB first "First Table"
 
-    insert "Second Table" ["Names"] [String (Some "Harry")] first
-    insert "Third Table"  ["Users"] [String (Some "Harry")] first
+    insertTwo "Second Table" ["Names"] [String (Some "Harry")] first
+    insertTwo "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
 
     first // see results
 
