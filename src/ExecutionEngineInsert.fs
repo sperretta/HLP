@@ -3,6 +3,7 @@ module ExecutionEngineInsert =
 
     open System.IO
     open System
+
     type boxData = | String of Option<string>  // To be extended when the wanted data types have been decided
                    | Int of Option<int> 
                    | Float of Option<float>                
@@ -16,24 +17,42 @@ module ExecutionEngineInsert =
     type rowList = RowNode of BoxList : ref<boxList> * Tl : ref<rowList> | INilRow                            
     type table = ref<rowList>  // Holds all the data in the table
     // Holds all the tables in the database.
-    type tableList = TableNode of topList : ref<rowList> * TableName : string * Tl : ref<tableList> | INilTable 
+    // A node has a table, a table name, a list with column names and types, and a tail pointing to the next table in the database.
+    type tableList = TableNode of topList : ref<rowList> * TableName : string * Columns : (string * boxData) list * Tl : ref<tableList> | INilTable 
     type database = ref<tableList>
 
+    // Get the tail from a table (entry after last row)
     let rec rowListLast thisList : table =
         match !thisList with
         | INilRow -> thisList
         | RowNode (_, tail) -> rowListLast tail
 
+    // Get the first row from a table
     let rowListFirstRow (thisList : table) =
         match !thisList with
         | INilRow -> None
         | RowNode (row, _) -> Some row
 
+    // Get a specific table from a database
     let rec chooseTable thisDatabase tableName =
         match !thisDatabase with
         | INilTable -> None
-        | TableNode (thisTable, thisName, _) when thisName = tableName -> Some thisTable
-        | TableNode (_, _, otherTables) -> chooseTable otherTables tableName
+        | TableNode (thisTable, thisName, _, _) when thisName = tableName -> Some thisTable
+        | TableNode (_, _, _, otherTables) -> chooseTable otherTables tableName
+
+    type ReturnCode<'a> = // From Matt
+        | Result of 'a
+        | Error of string
+
+    let UnwrapResultThrough func (from:ReturnCode<'a>) = // From Matt
+        match from with
+        | Result(res) -> Result(func res)
+        | Error(str) -> Error(str)
+
+    let UnwrapResultInto func (from:ReturnCode<'a>) = // From Matt
+        match from with
+        | Result(res) -> func res
+        | Error(str) -> Error(str)
 
 
     let helperFunc list f F caller emes=
@@ -106,10 +125,7 @@ module ExecutionEngineInsert =
         let colData = List.tail inpStrings |> List.map readInLine
         buildData colNames colData
 
-    let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
-    let myTable = readTable testSeparate
-    let tableTwo = readTable testSeparate
-    rowListFirstRow myTable
+
 
     let extractColumnNamesHelper1 = function
     | String _ -> "String"
@@ -129,14 +145,6 @@ module ExecutionEngineInsert =
         | None -> []
         | Some row -> extractColumnNamesHelper2 row
 
-    let rec extractColumnTypesHelperCopy thisRow columnNames =
-        match (!thisRow, columnNames) with
-        | (INilBox,_) -> []
-        | (BoxNode(parName,parVal,_,rowTail), colName :: colTail) when parName = colName 
-            -> parName :: (extractColumnNamesHelper1 parVal) :: extractColumnTypesHelper rowTail colTail
-        | (BoxNode(parName,parVal,_,rowTail), _)
-            -> parName :: (extractColumnNamesHelper1 parVal) :: extractColumnTypesHelper rowTail columnNames
-
     let extractColumnTypesHelper2 = function
     | String _ -> String None
     | Int _ -> Int None
@@ -155,8 +163,8 @@ module ExecutionEngineInsert =
     let splitIntoNamesAndValues namesAndValues =
         List.foldBack (fun  (parName, parType, parVal) (colAcc, valAcc) -> (parName :: parType :: colAcc, parVal :: valAcc) ) namesAndValues ([],[])
 
-    splitIntoNamesAndValues [("Name", "String", String None); ("ID", "Int", Int None)]
-  //  ParName: string * Value: boxData * Prev : ref<boxList> * Tl : ref<boxList> | INilBox
+    //splitIntoNamesAndValues [("Name", "String", String None); ("ID", "Int", Int None)]
+
     let extractColumnTypes rowOne columnNames columnValues =
         extractColumnTypesHelper1 rowOne columnNames columnValues |> splitIntoNamesAndValues
         
@@ -164,8 +172,7 @@ module ExecutionEngineInsert =
     | RowNode (row, _) ->
         extractColumnTypes row [] []
 
-    extractColumnNames myTable
-    extractColumnTypes myTable    
+    //extractColumnNames myTable
 
     let testColumnNames = ["Names"; "String"; "ID"; "Int"]
     let testValueList = [String (Some "George"); Int (Some 17)]
@@ -182,36 +189,49 @@ module ExecutionEngineInsert =
         | [] -> addToTable thisTable (extractColumnNames thisTable) valueList
         | _ -> addToTable thisTable columnList valueList
 
+
+    
+    let insert tableName columnNameList valueList thisDatabase =
+        let thisTable = chooseTable thisDatabase tableName
+        match thisTable with
+        | None -> Error("INSERT: Table specified not found")
+        | Some thisTable -> 
+            match !thisTable with
+            | INilRow -> Error("INSERT: Insert to empty table not yet implemented")
+            | RowNode (row, _) ->
+                let (colNamesTypes, colValues) = extractColumnTypes row columnNameList valueList
+                addToTable thisTable colNamesTypes colValues
+                Result ()
+
+
+
+    // Testingcode
+    let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
+    let myTable = readTable testSeparate
+    let tableTwo = readTable testSeparate
+    rowListFirstRow myTable
+    
     addToTable myTable testColumnNames testValueList
     addToTableWrapper myTable [] testValueList
     addToTableWrapper myTable testColumnNames testValueList
     myTable
     tableTwo
     let tail = ref INilTable
-    let snd = ref (TableNode (tableTwo, "Second Table", tail))
-    let first = ref (TableNode (myTable, "First Table", snd))
-
+    let snd = ref (TableNode (tableTwo, "Second Table", [("Names", String None);("ID", Int None)], tail))
+    let first = ref (TableNode (myTable, "First Table", [("Names", String None);("ID", Int None)], snd))
+    // first is now a database with two tables that can be used for testing.
     chooseTable first "First Table"
     chooseTable first "Second Table"
     chooseTable first "Third Table"
-    
-    let insert thisDatabase tableName columnNameList valueList =
-        let thisTable = chooseTable thisDatabase tableName
-        match thisTable with
-        | None -> printfn "Error: Table specified not found."
-        | Some thisTable -> 
-            match !thisTable with
-            | INilRow -> printfn "Error: Insert to empty table not yet implemented."
-            | RowNode (row, _) ->
-                let (colNamesTypes, colValues) = extractColumnTypes row columnNameList valueList
-                addToTable thisTable colNamesTypes colValues
 
-    insert first "Second Table" ["Names"] [String (Some "Harry")]
+    insert "Second Table" ["Names"] [String (Some "Harry")] first
+    insert "Third Table"  ["Names"] [String (Some "Harry")] first
 
-    first
+    first // see results
+
     (* Todo:
-    Function to choose table by tableName                                   DONE
-    Function to get columntypes by columnname                               DONE
-    Allow for only some values to be given -> rest set as None              DONE
-    Put into a common function that takes tableName, columnNameList and valueList 
+    Function to choose table by tableName                                           DONE
+    Function to get columntypes by columnname                                       DONE
+    Allow for only some values to be given -> rest set as None                      DONE
+    Put into a common function that takes tableName, columnNameList and valueList   DONE
     Give out an error message if some column names / column values are ignored, or just ignore everything, and give error message *)
