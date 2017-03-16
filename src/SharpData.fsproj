@@ -52,6 +52,7 @@
     <Compile Include="Token.fs" />
     <Compile Include="Tokeniser.fs" />
     <Compile Include="AssemblyInfo.fs" />
+	<Compile Include="ExecutionEngineCreate.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>
