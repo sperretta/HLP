@@ -57,7 +57,7 @@ module ExecutionEngineInsert =
 
 
     //////////////////////////////////////////////////////////////////////
-    // Used for building tests.
+    // Used for building tests. Taken from readTextFile
 
     let helperFunc list f F caller emes=
         match list with
@@ -102,8 +102,6 @@ module ExecutionEngineInsert =
         matchInputListsRec columns inpData firstHead nextNode
         nextNode
 
-
-
     let listBuilder acc lowList =
         let newNode = ref INilRow
         acc := RowNode (lowList, newNode)
@@ -142,7 +140,6 @@ module ExecutionEngineInsert =
         | TableNode (_, thisName, theseColumns, _) when thisName = tableName -> Some theseColumns
         | TableNode (_, _, _, otherTables) -> getTableTypes otherTables tableName
 
-
     let compareTypes valOne valTwo = 
         match (valOne, valTwo) with
         | (String _, String _) -> true
@@ -151,7 +148,6 @@ module ExecutionEngineInsert =
         | (Byte _,   Byte _  ) -> true
         | (Bool _,   Bool _  ) -> true
         | (_, _) -> false
-
 
     let rec newRowRec columnTypesNames columnValues prevNode nextNode =
         match (columnTypesNames, columnValues) with
@@ -169,74 +165,6 @@ module ExecutionEngineInsert =
         let nextNode = ref INilBox
         UnwrapResultThrough (fun () -> nextNode) (newRowRec columnTypesNames columnValues firstHead nextNode)
 
-
-    let extractColumnNamesHelper1 = function
-    | String _ -> "String"
-    | Int _ -> "Int"
-    | Float _ -> "Float"
-    | Byte _ -> "Byte"
-    | Bool _ -> "Bool"
-
-    let rec extractColumnNamesHelper2 thisRow = 
-        match !thisRow with
-        | INilBox -> []
-        | BoxNode (colName, colVal, prev, next) -> colName :: extractColumnNamesHelper1 colVal :: extractColumnNamesHelper2 next
-
-    let extractColumnNames thisTable =
-        let rowOne = rowListFirstRow thisTable
-        match rowOne with
-        | None -> []
-        | Some row -> extractColumnNamesHelper2 row
-
-    let extractColumnTypesHelper2 = function
-    | String _ -> String None
-    | Int _ -> Int None
-    | Float _ -> Float None
-    | Byte _ -> Byte None
-    | Bool _ -> Bool None
-
-    let rec extractColumnTypesHelper1 thisRow columnNames columnValues =
-        match (!thisRow, columnNames, columnValues) with
-        | (INilBox,_,_) -> []
-        | (BoxNode(parName,parVal,_,rowTail), colName :: colNameTail, colVal :: colValTail) when parName = colName 
-            -> (parName, (extractColumnNamesHelper1 parVal), colVal) :: extractColumnTypesHelper1 rowTail colNameTail colValTail
-        | (BoxNode(parName,parVal,_,rowTail),_,_)
-            -> (parName, (extractColumnNamesHelper1 parVal), extractColumnTypesHelper2 parVal) :: extractColumnTypesHelper1 rowTail columnNames columnValues
-
-    let splitIntoNamesAndValues namesAndValues =
-        List.foldBack (fun  (parName, parType, parVal) (colAcc, valAcc) -> (parName :: parType :: colAcc, parVal :: valAcc) ) namesAndValues ([],[])
-
-    //splitIntoNamesAndValues [("Name", "String", String None); ("ID", "Int", Int None)]
-
-    let extractColumnTypes rowOne columnNames columnValues =
-        extractColumnTypesHelper1 rowOne columnNames columnValues |> splitIntoNamesAndValues
-        
-    (*match !myTable with
-    | RowNode (row, _) ->
-        extractColumnTypes row [] [] *)
-
-    //extractColumnNames myTable
-
-    let testColumnNames = ["Names"; "String"; "ID"; "Int"]
-    let testValueList = [String (Some "George"); Int (Some 17)]
-
-    let addToTable thisTable columnNameList valueList =
-        // Build a low-level list with the new row
-        // Add this to the old table
-        // Return the original table with the new row appended
-        let newRow = matchInputLists columnNameList valueList
-        listBuilder (rowListLast thisTable) newRow |> ignore
-
-    let addToTableWrapper thisTable columnList valueList =
-        match columnList with
-        | [] -> addToTable thisTable (extractColumnNames thisTable) valueList
-        | _ -> addToTable thisTable columnList valueList
-
-    (* Functions needed:
-        Something to take the input table, and return the changed table
-        Something to take a list of column names and values given as input,
-        and return a list of column names & types, and values, including all columns. *)
-
     let addToTableTwo thisTable (colTypesNames, valueList) = 
         let newRow = newRow colTypesNames valueList
         UnwrapResultThrough (fun createdRow -> listBuilder (rowListLast thisTable) createdRow |> ignore) newRow
@@ -249,8 +177,6 @@ module ExecutionEngineInsert =
             UnwrapResultThrough (fun restOfList -> ((refName, refType), thisValue) :: restOfList ) (getAllColTypesValues otherRefColumns otherNames otherValues)
         | ((refName, refType) :: otherRefColumns, _, _) ->
             UnwrapResultThrough (fun restOfList -> ((refName, refType), refType) :: restOfList ) (getAllColTypesValues otherRefColumns columnList valueList)
-            //Result (((refName, refType), thisValue) :: (getAllColTypesValues otherRefColumns otherNames otherValues) )
-
 
     let splitIntoLists colTypesValues =
         List.foldBack (fun (colName, colType) (accName, accType) -> (colName :: accName, colType :: accType) ) colTypesValues ([], []) 
@@ -266,52 +192,6 @@ module ExecutionEngineInsert =
                     | Result typesValues ->
                         let (columns, values) = splitIntoLists typesValues
                         addToTableTwo thisTable (columns, values) 
-        
-            
-
-
-    let addToTableTwoWrapperOld thisTable refColumns columnList valueList =
-        let columnSpec = getAllColTypesValues refColumns columnList valueList
-        match columnSpec with
-        | Error emes -> Error emes
-        | Result typesValues ->
-            match columnList, List.length refColumns, List.length valueList with
-            | [], la, lb when la = lb -> addToTableTwo thisTable (refColumns, valueList)
-            | [], _, _ -> Error("INSERT: When column names are unspecified the number of inputs must match the number of columns in the table. ")
-            | _ -> 
-                let (columns, values) = splitIntoLists typesValues
-                addToTableTwo thisTable (columns, values)         
-
-    let splitTypesNames typesAndNames =
-        List.foldBack (fun  (parName, parType) (nameAcc, typeAcc) -> (parName :: nameAcc, parType :: typeAcc) ) typesAndNames ([],[])
-
-    let collectColumnTypesAndNames typesAndNames =
-        List.foldBack (fun  (parName, parType) acc -> (parName :: extractColumnNamesHelper1 parType :: acc) ) typesAndNames []
-
-    let rec colNamesTypesFromDB db tableName = 
-        match !db with
-        | INilTable -> None
-        | TableNode (_, thisName, theseCols, _) when thisName = tableName -> collectColumnTypesAndNames theseCols |> Some
-        | TableNode (_, _, _, otherTables) -> colNamesTypesFromDB otherTables tableName
-            
-    
-    let insert tableName columnNameList valueList thisDatabase =
-        let thisTable = chooseTable thisDatabase tableName
-        match thisTable with
-        | None -> Error("INSERT: Table specified not found")
-        | Some thisTable -> 
-            match !thisTable with
-            | INilRow -> 
-                let colNamesTypes = colNamesTypesFromDB thisDatabase tableName
-                match colNamesTypes with
-                | None -> Error("INSERT: Table specified not found")
-                | Some colNames ->
-                    addToTable thisTable colNames valueList
-                    Result ()
-            | RowNode (row, _) ->
-                let (colNamesTypes, colValues) = extractColumnTypes row columnNameList valueList
-                addToTable thisTable colNamesTypes colValues
-                Result ()
 
     let insertTwo tableName columnList valueList thisDatabase =
         let thisTableOption = chooseTable thisDatabase tableName
@@ -330,9 +210,9 @@ module ExecutionEngineInsert =
     let tableTwo = readTable testSeparate
     rowListFirstRow myTable
     
-    addToTable myTable testColumnNames testValueList
-    addToTableWrapper myTable [] testValueList
-    addToTableWrapper myTable testColumnNames testValueList
+    //addToTable myTable testColumnNames testValueList
+    //addToTableWrapper myTable [] testValueList
+    //addToTableWrapper myTable testColumnNames testValueList
     myTable
     tableTwo
     let tail = ref INilTable
@@ -346,16 +226,9 @@ module ExecutionEngineInsert =
     chooseTable first "Third Table"
     getTableTypes first "First Table"
     getTableTypes first "Third Table"
-    colNamesTypesFromDB first "First Table"
+    //colNamesTypesFromDB first "First Table"
 
     insertTwo "Second Table" ["Names"] [String (Some "Harry")] first
     insertTwo "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
 
     first // see results
-
-    (* Todo:
-    Function to choose table by tableName                                           DONE
-    Function to get columntypes by columnname                                       DONE
-    Allow for only some values to be given -> rest set as None                      DONE
-    Put into a common function that takes tableName, columnNameList and valueList   DONE
-    Give out an error message if some column names / column values are ignored, or just ignore everything, and give error message *)
