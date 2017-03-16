@@ -168,9 +168,9 @@ module ExecutionEngineInsert =
     let extractColumnTypes rowOne columnNames columnValues =
         extractColumnTypesHelper1 rowOne columnNames columnValues |> splitIntoNamesAndValues
         
-    match !myTable with
+    (*match !myTable with
     | RowNode (row, _) ->
-        extractColumnTypes row [] []
+        extractColumnTypes row [] [] *)
 
     //extractColumnNames myTable
 
@@ -189,7 +189,18 @@ module ExecutionEngineInsert =
         | [] -> addToTable thisTable (extractColumnNames thisTable) valueList
         | _ -> addToTable thisTable columnList valueList
 
+    let splitTypesNames typesAndNames =
+        List.foldBack (fun  (parName, parType) (nameAcc, typeAcc) -> (parName :: nameAcc, parType :: typeAcc) ) typesAndNames ([],[])
 
+    let collectColumnTypesAndNames typesAndNames =
+        List.foldBack (fun  (parName, parType) acc -> (parName :: extractColumnNamesHelper1 parType :: acc) ) typesAndNames []
+
+    let rec colNamesTypesFromDB db tableName = 
+        match !db with
+        | INilTable -> None
+        | TableNode (_, thisName, theseCols, _) when thisName = tableName -> collectColumnTypesAndNames theseCols |> Some
+        | TableNode (_, _, _, otherTables) -> colNamesTypesFromDB otherTables tableName
+            
     
     let insert tableName columnNameList valueList thisDatabase =
         let thisTable = chooseTable thisDatabase tableName
@@ -197,7 +208,13 @@ module ExecutionEngineInsert =
         | None -> Error("INSERT: Table specified not found")
         | Some thisTable -> 
             match !thisTable with
-            | INilRow -> Error("INSERT: Insert to empty table not yet implemented")
+            | INilRow -> 
+                let colNamesTypes = colNamesTypesFromDB thisDatabase tableName
+                match colNamesTypes with
+                | None -> Error("INSERT: Table specified not found")
+                | Some colNames ->
+                    addToTable thisTable colNames valueList
+                    Result ()
             | RowNode (row, _) ->
                 let (colNamesTypes, colValues) = extractColumnTypes row columnNameList valueList
                 addToTable thisTable colNamesTypes colValues
@@ -217,15 +234,18 @@ module ExecutionEngineInsert =
     myTable
     tableTwo
     let tail = ref INilTable
+    let tabThree = ref INilRow
     let snd = ref (TableNode (tableTwo, "Second Table", [("Names", String None);("ID", Int None)], tail))
-    let first = ref (TableNode (myTable, "First Table", [("Names", String None);("ID", Int None)], snd))
+    let mid = ref (TableNode (tabThree, "Third Table", [("Users", String None);("ID", Byte None)], snd))
+    let first = ref (TableNode (myTable, "First Table", [("Names", String None);("ID", Int None)], mid))
     // first is now a database with two tables that can be used for testing.
     chooseTable first "First Table"
     chooseTable first "Second Table"
     chooseTable first "Third Table"
+    colNamesTypesFromDB first "First Table"
 
     insert "Second Table" ["Names"] [String (Some "Harry")] first
-    insert "Third Table"  ["Names"] [String (Some "Harry")] first
+    insert "Third Table"  ["Users"] [String (Some "Harry")] first
 
     first // see results
 
