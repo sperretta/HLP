@@ -51,30 +51,11 @@
         | Result(res) -> func res
         | Error(str) -> Error(str)
 
-////////////////////////////////////////////////
+// Functions defined elsewhere
+//////////////////////////////////////////////////////////////////////
 
-(*
-    let head1  = ref INilLow
-    let tail1  = ref INilLow
-    let test2 = ref INilLow
-    let test1 = ref (INode ("username", (Some >> String) "Orlando", head1, test2))
-    test2 := INode ("age", (int >> Some >> Int) "45", test1, tail1)
-    test1
-
-    let head2 = ref INilLow
-    let tail2 = ref INilLow
-    let test4 = ref INilLow
-    let test3 = ref (INode ("username", (Some >> String) "Rebecca", head2, test4))
-
-    test4 := INode ("age", (int >> Some >> Int) "17", test3, tail2)
-    test3
-    
-    let tmpT  = ref INilTop
-    let tailT = ref INilTop
-    let myTopList = (Node (test1, tmpT))
-    tmpT := Node (test3, tailT)
-    myTopList
-*)
+///////////////////////////////////////////////////
+// Functions to read in a database from a text file.
     let helperStrProcess list f F caller emes=
         match list with
         | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
@@ -125,46 +106,9 @@
         List.fold listBuilder firstHead tmp |> ignore
         firstHead
 
-    let rec strBuilder = function
-        | [] -> []
-        | String (Some a) :: tail -> "String Some " + string a :: strBuilder tail
-        | String None     :: tail -> "String None"             :: strBuilder tail
-        | Int (Some a)    :: tail -> "Int Some " + string a    :: strBuilder tail
-        | Int None        :: tail -> "Int None"                :: strBuilder tail
-        | Float (Some a)  :: tail -> "Float Some " + string a  :: strBuilder tail
-        | Float None      :: tail -> "Float None"              :: strBuilder tail
-        | Byte (Some a)   :: tail -> "Byte Some " + string a   :: strBuilder tail
-        | Byte None       :: tail -> "Byte None"               :: strBuilder tail
-        | Bool (Some a)   :: tail -> "Bool Some " + string a   :: strBuilder tail
-        | Bool None       :: tail -> "Bool None"               :: strBuilder tail
-
-    let rec buildLine lineList = 
-        match lineList with
-        | [] -> ""
-        | el :: tail -> el + " " + (buildLine tail)
-
-    (*let buildOutSeq myData =
-        myData |> List.map strBuilder |> List.map buildLine |> Seq.ofList*)
-
-    let buildOutList myData =
-        myData |> List.map strBuilder |> List.map buildLine
-
-    (*let readInLine (inpString : string) =
-        inpString.Split [|' ';'\t'|] 
-        |> Array.toList |> List.filter (fun x -> x <> "")
-        |> strProcess*)
-
     let cleanLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
         |> Array.toList |> List.filter (fun x -> x <> "")
-
-    (*let readIn mySeq =
-        mySeq |> Seq.toList |> List.map readInLine *)
-
-    //let readFile pathString = IO.File.ReadLines pathString
-
-    (*let ReadInData myPath = 
-        myPath |> IO.File.ReadLines |> readIn*)
 
     let readTable inpStrings =
         let splitStrings = List.map cleanLine inpStrings
@@ -177,30 +121,6 @@
         | [] -> (List.rev rowList,[])
         | a :: tail when a = "TABLE" -> (List.rev rowList,inpStrings)
         | a :: tail -> allInOneTable tail (a :: rowList)
-
-    (*let rec wrapper inpStrings tableList =
-        let (table, otherStrings) = allInOneTable inpStrings []
-        match otherStrings with
-        | [] -> table :: tableList 
-        | "TABLE" :: tail -> wrapper tail (table::tableList)
-
-    let sortIntoMultiple inpStrings = 
-        let tableLists = []
-        match inpStrings with 
-        | a :: tail when a = "TABLE" -> List.rev (wrapper tail [])*)
-
-    (*
-    let rec stringsOneTable inpStrings rowList =
-        match inpStrings with
-        | [] -> (List.rev rowList,[])
-        | a  
-
-    
-    let rec sortIntoMultipleRev inpList =
-        let (table, otherStrings) = allInOneTable inpList []
-        match otherStrings with
-        | [] -> []
-        | a :: tableName :: tail when a = "TABLE" -> (tableName, table) :: sortIntoMultipleRev tail *)
 
     let rec sortIntoMultipleRev inpList =
         let (table, otherStrings) = allInOneTable inpList []
@@ -218,25 +138,6 @@
     let rec getTypes = function
         | [] -> []
         | colName :: colType :: tail -> (colName, colType :: ["None"] |> strProcess |> List.head) :: getTypes tail
-
-    (*
-    let rec allInOneTableTwo inpStrings rowList =
-        match inpStrings with
-        | [] -> (List.rev rowList,[])
-        | a :: tail when a = "TABLE" -> (List.rev rowList,inpStrings)
-        | a :: tail -> allInOneTableTwo tail (a :: rowList)
-
-    let rec wrapperTwo inpStrings tableList =
-        let (table, strings) = allInOneTableTwo inpStrings []
-        match strings with
-        | [] -> table :: tableList 
-        | "TABLE" :: tail -> wrapperTwo tail (table::tableList)
-
-    let sortIntoMultipleTwo inpStrings = 
-        let tableLists = []
-        match inpStrings with 
-        | a :: name :: tail when a = "TABLE" -> List.rev (wrapperTwo tail []) *)
-
 
     let rec buildDatabaseRec tableList tableNames tableTypes thisNode =
         match tableList, tableNames, tableTypes with
@@ -259,7 +160,32 @@
 
     let readInFull pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
- 
+
+
+        
+///////////////////////////////////////////////////
+// Functions to save a database to a text file.
+
+    let rec strBuilder = function
+        | [] -> []
+        | String (Some a) :: tail -> "String Some " + string a :: strBuilder tail
+        | String None     :: tail -> "String None"             :: strBuilder tail
+        | Int (Some a)    :: tail -> "Int Some " + string a    :: strBuilder tail
+        | Int None        :: tail -> "Int None"                :: strBuilder tail
+        | Float (Some a)  :: tail -> "Float Some " + string a  :: strBuilder tail
+        | Float None      :: tail -> "Float None"              :: strBuilder tail
+        | Byte (Some a)   :: tail -> "Byte Some " + string a   :: strBuilder tail
+        | Byte None       :: tail -> "Byte None"               :: strBuilder tail
+        | Bool (Some a)   :: tail -> "Bool Some " + string a   :: strBuilder tail
+        | Bool None       :: tail -> "Bool None"               :: strBuilder tail
+
+    let rec buildLine lineList = 
+        match lineList with
+        | [] -> ""
+        | el :: tail -> el + " " + (buildLine tail)
+
+    let buildOutList myData =
+        myData |> List.map strBuilder |> List.map buildLine
 
     let rec extractBoxValues boxList =
         match !boxList with
