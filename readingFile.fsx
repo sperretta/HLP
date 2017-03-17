@@ -146,6 +146,9 @@
     let buildOutSeq myData =
         myData |> List.map strBuilder |> List.map buildLine |> Seq.ofList
 
+    let buildOutList myData =
+        myData |> List.map strBuilder |> List.map buildLine
+
     let readInLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
         |> Array.toList |> List.filter (fun x -> x <> "")
@@ -257,7 +260,34 @@
         pathName |> readFile |> Seq.toList |> buildDatabaseWrapper
  
 
-    //let extractBoxValues thisRow =
+    let rec extractBoxValues boxList =
+        match !boxList with
+        | INilBox -> []
+        | BoxNode (colName, value, _, tail) -> value :: extractBoxValues tail
+
+    let rec extractRowValues rowList =
+        match !rowList with
+        | INilRow -> []
+        | RowNode (thisRow, nextRow) -> extractBoxValues thisRow :: extractRowValues nextRow
+
+    let rec extractBoxTypes ( columns : (string * boxData) list ) = 
+        match columns with
+        | [] -> ""
+        | (colName, String _) :: tail -> colName + " String " + extractBoxTypes tail
+        | (colName, Int    _) :: tail -> colName + " Int    " + extractBoxTypes tail
+        | (colName, Float  _) :: tail -> colName + " Float  " + extractBoxTypes tail
+        | (colName, Byte   _) :: tail -> colName + " Byte   " + extractBoxTypes tail
+        | (colName, Bool   _) :: tail -> colName + " Bool   " + extractBoxTypes tail
+
+    let rec saveDatabaseStrings  database =
+        match !database with
+        | INilTable -> []
+        | TableNode (thisTable, tableName, tableTypes, nextTable) ->
+            ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
+            
+            
+         
+    "Hei " + "Hallo"
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests
 
@@ -287,11 +317,14 @@
 
     let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\dataFile.txt"
     let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFile.txt"
+    let outPathFull = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFileFull.txt"
     let someStruct = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\someStructureDataFile.txt"
     let structPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredDataFile.txt"
     let fullPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedDataFile.txt" 
 
-    readInFull fullPath // Reads in data as saved with final specification (17/3/17)
+    let db = readInFull fullPath // Reads in data to a database as saved with final specification (17/3/17)
+    File.WriteAllLines (outPathFull, saveDatabaseStrings db |> List.toSeq) // Writes all data into a database, saved with final specification (17/3/17)
+    readInFull outPathFull // Can be read back in.
 
     let fileLines = readFile myPath
     let k = readIn fileLines
@@ -322,6 +355,7 @@
     let s = strBuilder (List.head j )
     let t = buildLine s
     let u = buildOutSeq j
+    buildOutList j
     File.WriteAllLines(outPath, u)
     let v = ReadInData outPath
 
