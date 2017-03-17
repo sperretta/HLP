@@ -143,32 +143,33 @@
         | [] -> ""
         | el :: tail -> el + " " + (buildLine tail)
 
-    let buildOutSeq myData =
-        myData |> List.map strBuilder |> List.map buildLine |> Seq.ofList
+    (*let buildOutSeq myData =
+        myData |> List.map strBuilder |> List.map buildLine |> Seq.ofList*)
 
     let buildOutList myData =
         myData |> List.map strBuilder |> List.map buildLine
 
-    let readInLine (inpString : string) =
+    (*let readInLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
         |> Array.toList |> List.filter (fun x -> x <> "")
-        |> strProcess
+        |> strProcess*)
 
     let cleanLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
         |> Array.toList |> List.filter (fun x -> x <> "")
 
-    let readIn mySeq =
-        mySeq |> Seq.toList |> List.map readInLine
+    (*let readIn mySeq =
+        mySeq |> Seq.toList |> List.map readInLine *)
 
-    let readFile pathString = IO.File.ReadLines pathString
-    let ReadInData myPath = 
-        myPath |> IO.File.ReadLines |> readIn
+    //let readFile pathString = IO.File.ReadLines pathString
+
+    (*let ReadInData myPath = 
+        myPath |> IO.File.ReadLines |> readIn*)
 
     let readTable inpStrings =
         let splitStrings = List.map cleanLine inpStrings
         let colNames = List.head splitStrings
-        let colData = List.tail inpStrings |> List.map readInLine
+        let colData = List.tail splitStrings |> List.map strProcess
         buildData colNames colData
 
     let rec allInOneTable inpStrings rowList =
@@ -177,7 +178,7 @@
         | a :: tail when a = "TABLE" -> (List.rev rowList,inpStrings)
         | a :: tail -> allInOneTable tail (a :: rowList)
 
-    let rec wrapper inpStrings tableList =
+    (*let rec wrapper inpStrings tableList =
         let (table, otherStrings) = allInOneTable inpStrings []
         match otherStrings with
         | [] -> table :: tableList 
@@ -186,7 +187,7 @@
     let sortIntoMultiple inpStrings = 
         let tableLists = []
         match inpStrings with 
-        | a :: tail when a = "TABLE" -> List.rev (wrapper tail [])
+        | a :: tail when a = "TABLE" -> List.rev (wrapper tail [])*)
 
     (*
     let rec stringsOneTable inpStrings rowList =
@@ -257,7 +258,7 @@
         buildDatabase tables names types
 
     let readInFull pathName = 
-        pathName |> readFile |> Seq.toList |> buildDatabaseWrapper
+        pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
  
 
     let rec extractBoxValues boxList =
@@ -279,15 +280,15 @@
         | (colName, Byte   _) :: tail -> colName + " Byte   " + extractBoxTypes tail
         | (colName, Bool   _) :: tail -> colName + " Bool   " + extractBoxTypes tail
 
-    let rec saveDatabaseStrings  database =
+    let rec saveDatabaseStrings database =
         match !database with
         | INilTable -> []
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
             
-            
+    let saveDatabase path database =
+        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq)
          
-    "Hei " + "Hallo"
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests
 
@@ -325,46 +326,46 @@
     let db = readInFull fullPath // Reads in data to a database as saved with final specification (17/3/17)
     File.WriteAllLines (outPathFull, saveDatabaseStrings db |> List.toSeq) // Writes all data into a database, saved with final specification (17/3/17)
     readInFull outPathFull // Can be read back in.
-
-    let fileLines = readFile myPath
-    let k = readIn fileLines
-    let j = ReadInData myPath
+    
+    //let fileLines = readFile myPath
+    //let k = readIn fileLines
+    //let j = ReadInData myPath
 
     let exCol2 = ["Names"; "String"; "ID"; "Int"; "Credit"; "Float"; "Hex"; "Byte"; "Member"; "Bool"]
     let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
     readTable testSeparate
-    buildData exCol2 j
+    //buildData exCol2 j
 
     let testMultiple = ["TABLE";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Subject String"; "String Some Math"; "String Some Music"]
 
-    wrapper ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"] []
+    //wrapper ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"] []
 
     // Get table names in a list, get table tyoes in a list, get a list with strings separated for tables (sortIntoMultiple output)
 
         
 
 
-    sortIntoMultiple ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"]
+    //sortIntoMultiple ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"]
         
-    sortIntoMultiple testMultiple
-    readFile structPath |> Seq.toList |> sortIntoMultiple |> List.map readTable
+    //sortIntoMultiple testMultiple
+    //readFile structPath |> Seq.toList |> sortIntoMultiple |> List.map readTable
         
-    readFile someStruct |> Seq.toList |> readTable
+    //readFile someStruct |> Seq.toList |> readTable
     //type TableList = TableNode of topList : ref<topList> * TableName : string * Tl : ref<TableList> | INilTable
 
-    let s = strBuilder (List.head j )
-    let t = buildLine s
-    let u = buildOutSeq j
-    buildOutList j
-    File.WriteAllLines(outPath, u)
-    let v = ReadInData outPath
+   // let s = strBuilder (List.head j )
+  //  let t = buildLine s
+   // let u = buildOutSeq j
+    //buildOutList j
+    //File.WriteAllLines(outPath, u)
+   // let v = ReadInData outPath
 
 
  
         
-    printfn "%A" fileLines
-    printfn "%A" k
-    printfn "%A" j
+//    printfn "%A" fileLines
+ //   printfn "%A" k
+ //   printfn "%A" j
 
 (*
 To save database:
