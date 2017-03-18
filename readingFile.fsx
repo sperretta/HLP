@@ -58,19 +58,20 @@
 // Functions to read in a database from a text file.
     let helperStrProcess list f F caller emes=
         match list with
-        | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
-        | "None" :: tail -> F None :: caller tail
-        | e :: tail -> (Some >> String) ("error: " + emes + ": " + e) :: caller tail
-        | [] -> [(Some >> String) ("error: " + emes + " empty list")]
+        | "Some" :: c :: tail -> UnwrapResultThrough (fun a -> (c |> f |> Some |> F) :: a) (caller tail)
+        | "None" :: tail ->      UnwrapResultThrough (fun a -> F None :: a) (caller tail)
+        | e1 :: e2 :: tail -> Error ("READ IN: Value must be an option " + emes + ": " + e1 + " " + e2)
+        | e :: tail ->        Error ("READ IN: Value must be an option " + emes + ": " + e)
+        | [] ->               Error ("READ IN: " + emes + " empty list")
 
     let rec strProcess = function
-        | [] -> []
+        | [] -> Result []
         | a :: tail when a = "String" -> helperStrProcess tail (fun x -> x) String strProcess a
         | a :: tail when a = "Int"    -> helperStrProcess tail int Int strProcess a
         | a :: tail when a = "Float"  -> helperStrProcess tail float Float strProcess a
         | a :: tail when a = "Byte"   -> helperStrProcess tail byte Byte strProcess a
         | a :: tail when a = "Bool"   -> helperStrProcess tail System.Convert.ToBoolean Bool strProcess a
-        | e :: tail                   -> (Some >> String) ("error: " + e) :: (strProcess tail)
+        | e :: tail                   -> Error ("READ IN: Data type specified not valid " + e)
          
     let compStringType colType inpNext = 
         match inpNext with
@@ -82,29 +83,36 @@
 
     let rec matchInputListsRec columns inpData prevNode nextNode =
         match (columns,inpData) with 
-        | ([],[]) -> ()
+        | ([],[]) -> Result()
         | (colName :: colType :: colTail, inpNext :: inpTail) when compStringType colType inpNext->
             let newNode = ref INilBox
             nextNode := (BoxNode (colName, inpNext, prevNode, newNode))
             matchInputListsRec colTail inpTail nextNode newNode
-        | _ -> printfn "Error: %A" (columns,inpData)
+        | _ -> Error("READ IN: If columns are specified, there should be as many columns as values given.")
     
     let matchInputLists columns inpData =
         let firstHead = ref INilBox
         let nextNode  = ref INilBox
-        matchInputListsRec columns inpData firstHead nextNode
-        nextNode
+        let attempt = matchInputListsRec columns inpData firstHead nextNode
+        UnwrapResultThrough (fun a -> nextNode) attempt
 
-    let listBuilder acc lowList =
-        let newNode = ref INilRow
-        acc := RowNode (lowList, newNode)
-        newNode
+    let listBuilder accList lowList =
+        match accList,lowList with
+        | Error(e1),Error(e2) -> Error(e1+e2)
+        | Error(e1), _ -> Error(e1)
+        | _, Error(e2) -> Error(e2)
+        | Result acc, Result list ->
+            let newNode = ref INilRow
+            acc := RowNode (list, newNode)
+            Result newNode
 
-    let buildData columns inpData = 
-        let tmp = List.map (matchInputLists columns) inpData
+    let buildData columns (inpData : ReturnCode<boxData list> list) = 
+        let tmp = List.map (UnwrapResultInto (matchInputLists columns)) inpData
         let firstHead = ref INilRow
-        List.fold listBuilder firstHead tmp |> ignore
-        firstHead
+        let build = List.fold listBuilder (Result firstHead) tmp
+        match build with
+        | Error(e) -> Error(e)
+        | Result _ -> Result firstHead
 
     let cleanLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
@@ -125,38 +133,76 @@
     let rec sortIntoMultipleRev inpList =
         let (table, otherStrings) = allInOneTable inpList []
         match inpList with
-        | [] -> []
+        | [] -> Result []
         | a :: tableName :: tail when a = "TABLE" -> 
             let (table, otherStrings) = allInOneTable tail [] 
-            (tableName, table) :: sortIntoMultipleRev otherStrings
-        | _ -> printfn "Error!" |> fun () -> []
+            let laterRes = sortIntoMultipleRev otherStrings
+            match laterRes with
+            | Error _ -> laterRes
+            | Result later -> 
+                Result ((tableName, table) :: later)
+        | _ -> Error("READ IN: A table must have a table name")
+
+    let splitIntoThreeListsHelper (tabName, typeData) acc =
+        match acc, typeData with
+        | Error(e), _ -> Error(e)
+        | Result (nameAcc, typeAcc, dataAcc), typeString :: dataString ->
+            Result (tabName :: nameAcc, typeString :: typeAcc, (typeString :: dataString) :: dataAcc)
+        | _,_ -> Error("A table must have data types specified") 
 
     let splitIntoThreeLists inpList =
-        List.foldBack (fun (tabName, typeString :: dataString) (nameAcc, typeAcc, dataAcc) -> 
-            (tabName :: nameAcc, typeString :: typeAcc, (typeString :: dataString) :: dataAcc) ) inpList ([], [], [])
+        List.foldBack splitIntoThreeListsHelper inpList (Result ([], [], []))
 
     let rec getTypes = function
-        | [] -> []
-        | colName :: colType :: tail -> (colName, colType :: ["None"] |> strProcess |> List.head) :: getTypes tail
+        | [] -> Result []
+        | colName :: colType :: tail -> 
+            let nextOnes = getTypes tail
+            match nextOnes with
+            | Error(e) -> Error(e)
+            | Result nOnes -> 
+                let tmp = colType :: ["None"] |> strProcess
+                match tmp with
+                | Error(e) -> Error(e)
+                | Result tmp2 ->
+                    Result ( (colName, (List.head tmp2) ) :: nOnes )
+        | _ -> Error "READ IN: Column name given but no type specified."
 
     let rec buildDatabaseRec tableList tableNames tableTypes thisNode =
         match tableList, tableNames, tableTypes with
-        | ([],[],[]) -> ()
+        | ([],[],[]) -> Result ()
         | thisTable :: tableTail, thisName :: nameTail, theseTypes :: typeTail ->
             let nextNode = ref INilTable
             thisNode := TableNode (thisTable, thisName, theseTypes, nextNode )
             buildDatabaseRec tableTail nameTail typeTail nextNode
+        | _ -> Error "READ IN: Unequal amount of tables, table names and table type specifications given"
 
     let buildDatabase tableList tableNames tableTypes =
         let firstNode = ref INilTable
-        buildDatabaseRec tableList tableNames tableTypes firstNode
-        firstNode
+        match buildDatabaseRec tableList tableNames tableTypes firstNode with
+        | Error e -> Error e
+        | Result _ -> Result firstNode
+    
+    let returnCodeListFlattener (lis : ReturnCode<'a> list) =
+        List.foldBack (fun elRes accRes -> match elRes,accRes with
+                                            | Error(e1), Error(e2) -> Error(e1+e2)
+                                            | Error(e1), _ -> Error(e1)
+                                            | _, Error(e2) -> Error(e2)
+                                            | Result el, Result acc -> Result (el :: acc)   ) lis (Result []) 
 
     let buildDatabaseWrapper inpStrings =
-        let (names, typesRaw, data) = inpStrings |> sortIntoMultipleRev |> splitIntoThreeLists
-        let types = List.map getTypes (List.map cleanLine typesRaw)
-        let tables = List.map readTable data
-        buildDatabase tables names types
+        let decodeRes = inpStrings |> sortIntoMultipleRev |> UnwrapResultInto splitIntoThreeLists
+        match decodeRes with
+        | Error e -> Error e
+        | Result (names, typesRaw, data) ->
+            let types = List.map getTypes (List.map cleanLine typesRaw)
+            let tables = List.map readTable data
+            let typesFlat = returnCodeListFlattener types
+            let tablesFlat = returnCodeListFlattener tables
+            match typesFlat, tablesFlat with
+            | Error(e1), Error(e2) -> Error(e1+e2)
+            | Error(e1), _ -> Error(e1)
+            | _, Error(e2) -> Error(e2)
+            | Result typ, Result tab -> buildDatabase tab names typ
 
     let readInFull pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
@@ -213,13 +259,13 @@
             ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
             
     let saveDatabase path database =
-        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq)
+       File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
          
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests
 
-    sortIntoMultipleRev ["TABLE"; "User Table"; "User String"; "X Y"; "Z W"; "TABLE"; "Table Two"; "ID Int"; "X Y"; "W Z"]
-    |> splitIntoThreeLists
+    //sortIntoMultipleRev ["TABLE"; "User Table"; "User String"; "X Y"; "Z W"; "TABLE"; "Table Two"; "ID Int"; "X Y"; "W Z"]
+    //|> splitIntoThreeLists
     getTypes (cleanLine "User  String   ID Int")
     sortIntoMultipleRev ["TABLE";"User Table";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Table Two"; "Subject String"; "String Some Math"; "String Some Music"]
 
@@ -232,8 +278,8 @@
     let badData = [[String (Some "Hedvig"); Float (Some 3.2)]]
 
     matchInputLists exCol exData
-    buildData exCol exDataMult
-    buildData exCol badData
+    //buildData exCol exDataMult
+    //buildData exCol badData
 
     strProcess ["String"; "Some"; "Orlando"; "Int"; "Some"; "45"]
     strProcess ["Byte"; "Some"; "0xF3"; "Byte"; "None"]
@@ -249,9 +295,12 @@
     let structPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredDataFile.txt"
     let fullPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedDataFile.txt" 
 
-    let db = readInFull fullPath // Reads in data to a database as saved with final specification (17/3/17)
-    File.WriteAllLines (outPathFull, saveDatabaseStrings db |> List.toSeq) // Writes all data into a database, saved with final specification (17/3/17)
-    readInFull outPathFull // Can be read back in.
+    let dbRes = readInFull fullPath // Reads in data to a database as saved with final specification (17/3/17)
+    match dbRes with
+    | Error e -> Error e
+    | Result db -> 
+        saveDatabase outPathFull db // Writes all data into a database, saved with final specification (17/3/17)
+    let dbResCopy = readInFull outPathFull // Can be read back in.
     
     //let fileLines = readFile myPath
     //let k = readIn fileLines
