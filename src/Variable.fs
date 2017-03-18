@@ -8,15 +8,15 @@ module Variable =
         | String
 
     type varContent =
-        | Integer of int
-        | Float of float
-        | Boolean of bool
-        | Byte of byte
-        | String of string
+        | Integer of int option
+        | Float of float option
+        | Boolean of bool option
+        | Byte of byte option
+        | String of string option
 
     type typeContainer = Map<string,varType>
 
-    type contentsContainer = Map<string,varType*varContent>
+    type contentsContainer = Map<string,varContent>
 
     let validTypes =
         [

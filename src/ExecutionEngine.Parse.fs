@@ -2,41 +2,105 @@
 module Parse =
     open Parser.ControlAndTypes
     open ReturnControl.Main
+    open ReturnControl.ExecutionEngine
 
     open Main
 
     open Tokeniser
 
-    let interpretWrappedColumnList columnLeaves =
-        let rec parse branches =
-            match branches with
-            | Item(Key(Column),columnWrappedName) :: rest ->
-                columnWrappedName
-                match rest with
-                | 
+    //let interpretWrappedColumnList columnLeaves =
+    //    let rec parse branches =
+    //        match branches with
+    //        | Item(Key(Column),columnWrappedName) :: rest ->
+    //            columnWrappedName
+    //            match rest with
+    //            | 
 
     let interpetSelect branches variables =
-        open Select
+        //open Select
         let unwrapChildren =
             match branches with
             | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
-                (unwrapWrappedColumnList wrappedColumnList),(unwrapTableNameList tableNameList),optionalLeaves
+                ((unwrapWrappedColumnList wrappedColumnList),(unwrapTableNameList tableNameList),optionalLeaves)
+                |> fun x -> Result(x)
             | Branch(Key(Column),_) :: item :: _ ->
                 Error (sprintf "Expected from branch, got %A" item)
             | item :: _ ->
                 Error (sprintf "Expected column branch, got %A" item)
             | [] ->
                 Error("Expected column branch, ran out of tree")
+        unwrapChildren
                 
 
-    let interpetInsert branches variables =
-        open Insert
+    let interpetInsert branches (variables:Variable.Variable.contentsContainer) =
+        let interpretValueItem value =
+            match value with
+            | Item(Key(Number),Literal(Token.Value(numberItem))) ->
+                match numberItem with
+                | Token.Integer(num) -> Result(Variable.Variable.varContent.Integer (Some num))
+                | Token.Floating(num) -> Result(Variable.Variable.varContent.Float (Some num))
+                | Token.Byte(num) -> Result(Variable.Variable.varContent.Byte (Some num))
+                | Token.Boolean(num) -> Result(Variable.Variable.varContent.Boolean (Some num))
+            | Item(Key(String),Literal(Token.Name(stringItem))) ->
+                Result(Variable.Variable.varContent.String (Some stringItem))
+            | Item(Key(Variable),Literal(Token.Name(varName))) ->
+                Result(variables.[varName])
+            | _ -> Error(sprintf "Expected value item, got %A" value)
+        let interpretValueList nodeList =
+            let rec parse outLst inLst =
+                match inLst with
+                | Item(Key(Value),valueItem) :: rest ->
+                    interpretValueItem valueItem
+                    |> UnwrapResultInto (fun x -> parse (x::outLst) rest)
+                | [] -> Result(outLst)
+                | item :: _ -> Error(sprintf "Expected value item, got %A" item)
+            parse [] nodeList
+            |> UnwrapResultThrough (fun lst -> List.rev lst)
+        let (|MatchValueList|) nodeLst =
+            match nodeLst with
+            | Branch(Key(Value),valueList) :: [] ->
+                interpretValueList valueList
+            | [] -> Error("Expected value list, ran out of tree")
+            | other -> Error(sprintf "Expected value list, got %A" other)
+        let interpretColumnNameList nodeList =
+            let rec parse outLst inLst =
+                match inLst with
+                | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: rest ->
+                    parse (colName :: outLst) rest
+                | [] -> Result(outLst)
+                | other -> Error(sprintf "Expected column name, got %A" other)
+            parse [] nodeList
+            |> UnwrapResultThrough (fun colList -> List.rev colList)
+        let (|MatchColumnAndValueList|_|) nodeLst =
+            match nodeLst with
+            | Branch(Key(Column),columnNameList) :: rest ->
+                match rest with
+                | MatchValueList valueList ->
+                    UnwrapTwoResultsThrough (fun x y -> x,y) (interpretColumnNameList columnNameList) valueList
+                    |> fun x -> Some(x)
+            | _ -> None
+        let matchRest nodeLst =
+            match nodeLst with
+            | MatchColumnAndValueList matchedResult -> matchedResult
+            | MatchValueList matchedValueList ->
+                matchedValueList
+                |> UnwrapResultInto (fun x -> Result([],x))
+            | _ -> Error (sprintf "Expected column list or value list, got %A" nodeLst)
+        match branches with
+        | Item(Key(Into),Literal(Token.Name(tableName))) :: rest ->
+            matchRest rest
+            |> UnwrapResultInto (fun (colList,valueList) -> Insert.run tableName colList valueList)
+            |> fun func -> Backend.Database.run func
+        | item :: _ -> Error(sprintf "Expected table name, got %A" item)
+        | [] -> Error("Expected table name, but damaged tree, missing next branch")
+
+
     let interpetUpdate branches variables =
         open Update
     let interpetSet branches variables =
         open Set
 
-    let interpetDeclare branches variables =
+    let interpetDeclare branches (variables:Variable.Variable.contentsContainer) =
         match branches with
         | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
             if variables.ContainsKey(varName) then Error(sprintf "Variable name \"%s\" has already been declared" varName)
@@ -68,6 +132,7 @@ module Parse =
         | Item(Key(Name),Literal(Token.Name(tableName))) :: Branch(Key(Value),valueChildren) :: [] ->
             interpretColumnTypeList valueChildren
             |> fun valueList -> Create.run tableName (List.rev valueList)
+            |> fun func -> Backend.Database.run func
         | _ -> Error (sprinf "Unrecognised sequence after CREATE %A" branches)
 
     let runThroughTree (tree:node list) =
