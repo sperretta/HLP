@@ -5,6 +5,8 @@ module Parse =
 
     open Main
 
+    open Tokeniser
+
     let interpretWrappedColumnList columnLeaves =
         let rec parse branches =
             match branches with
@@ -33,12 +35,40 @@ module Parse =
         open Update
     let interpetSet branches variables =
         open Set
+
     let interpetDeclare branches variables =
-        open Declare
+        match branches with
+        | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
+            if variables.ContainsKey(varName) then Error(sprintf "Variable name \"%s\" has already been declared" varName)
+            else
+                if Map.containsKey varType Variable.Variable.validTypes then
+                    Map.add varName Variable.Variable.validTypes.[varType] variables
+                    |> fun x -> Result(x)
+                else Error(sprintf "Unrecognised variable type \"%s\"" varType)
+        | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
+
     let interpetDelete branches variables =
         open Delete
+
     let interpetCreate branches =
-        open Create
+        let interpretColumnTypeItem children =
+            match children with
+            | Item(Key(Name),Literal(Token.Name(colName))) :: Item(Key(Type),Literal(Token.Name(colType))) ::  [] ->
+                if Map.containsKey colType Variable.Variable.validTypes then (colName,Variable.Variable.validTypes.[colType])
+                else Error(sprintf "Unrecognised column type %s" colType)
+            | _ -> Error(sprinft "Unrecognised column-type pattern %A" children)
+        let interpretColumnTypeList children =
+            let rec parse outLst (inLst:node list) =
+                match inLst with
+                | Branch(Key(Column),columnType) :: rest ->
+                    interpretColumnTypeItem columnType
+                    |> UnwrapResultInto (fun newItem -> parse (newItem :: outLst) rest)
+                | [] -> Result(outLst)
+        match branches with
+        | Item(Key(Name),Literal(Token.Name(tableName))) :: Branch(Key(Value),valueChildren) :: [] ->
+            interpretColumnTypeList valueChildren
+            |> fun valueList -> Create.run tableName (List.rev valueList)
+        | _ -> Error (sprinf "Unrecognised sequence after CREATE %A" branches)
 
     let runThroughTree (tree:node list) =
         let rec parse (branches:node list) (varMap:Variable.Variable.contentsContainer) (returnTableList:returnTableListType) = //Returntabletype list =
