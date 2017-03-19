@@ -26,21 +26,16 @@ module Parse =
         parse [] branches
         |> UnwrapResultThrough (fun x -> List.rev x)
 
-    let interpetSelect branches variables =
-        //open Select
-        let unwrapChildren =
-            match branches with
-            | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
-                ((unwrapWrappedColumnList wrappedColumnList),(interpretTableNameList tableNameList),optionalLeaves)
-                |> fun x -> Result(x)
-            | Branch(Key(Column),_) :: item :: _ ->
-                Error (sprintf "Expected from branch, got %A" item)
-            | item :: _ ->
-                Error (sprintf "Expected column branch, got %A" item)
-            | [] ->
-                Error("Expected column branch, ran out of tree")
-        unwrapChildren
-                
+    let interpretColumnNameList nodeList =
+        let rec parse outLst inLst =
+            match inLst with
+            | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: rest ->
+                parse (colName :: outLst) rest
+            | [] -> Result(outLst)
+            | other -> Error(sprintf "Expected column name, got %A" other)
+        parse [] nodeList
+        |> UnwrapResultThrough (fun colList -> List.rev colList)
+
     let interpretValueItem value (variables:Variable.Variable.contentsContainer) =
         match value with
         | Item(Key(Number),Literal(Token.Value(numberItem))) ->
@@ -54,84 +49,6 @@ module Parse =
         | Item(Key(Variable),Literal(Token.Name(varName))) ->
             Result(variables.[varName])
         | _ -> Error(sprintf "Expected value item, got %A" value)
-
-    let interpetInsert branches (variables:Variable.Variable.contentsContainer) =
-        let interpretValueList nodeList =
-            let rec parse outLst inLst =
-                match inLst with
-                | Item(Key(Value),valueItem) :: rest ->
-                    interpretValueItem valueItem variables
-                    |> UnwrapResultInto (fun x -> parse (x::outLst) rest)
-                | [] -> Result(outLst)
-                | item :: _ -> Error(sprintf "Expected value item, got %A" item)
-            parse [] nodeList
-            |> UnwrapResultThrough (fun lst -> List.rev lst)
-        let (|MatchValueList|) nodeLst =
-            match nodeLst with
-            | Branch(Key(Value),valueList) :: [] ->
-                interpretValueList valueList
-            | [] -> Error("Expected value list, ran out of tree")
-            | other -> Error(sprintf "Expected value list, got %A" other)
-        let interpretColumnNameList nodeList =
-            let rec parse outLst inLst =
-                match inLst with
-                | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: rest ->
-                    parse (colName :: outLst) rest
-                | [] -> Result(outLst)
-                | other -> Error(sprintf "Expected column name, got %A" other)
-            parse [] nodeList
-            |> UnwrapResultThrough (fun colList -> List.rev colList)
-        let (|MatchColumnAndValueList|_|) nodeLst =
-            match nodeLst with
-            | Branch(Key(Column),columnNameList) :: rest ->
-                match rest with
-                | MatchValueList valueList ->
-                    UnwrapTwoResultsThrough (fun x y -> x,y) (interpretColumnNameList columnNameList) valueList
-                    |> fun x -> Some(x)
-            | _ -> None
-        let matchRest nodeLst =
-            match nodeLst with
-            | MatchColumnAndValueList matchedResult -> matchedResult
-            | MatchValueList matchedValueList ->
-                matchedValueList
-                |> UnwrapResultInto (fun x -> Result([],x))
-            | _ -> Error (sprintf "Expected column list or value list, got %A" nodeLst)
-        match branches with
-        | Item(Key(Into),Literal(Token.Name(tableName))) :: rest ->
-            matchRest rest
-            |> UnwrapResultInto (fun (colList,valueList) -> Insert.run tableName colList valueList)
-            |> fun func -> Backend.Database.run func
-        | item :: _ -> Error(sprintf "Expected table name, got %A" item)
-        | [] -> Error("Expected table name, but damaged tree, missing next branch")
-
-    //let interpetUpdate branches variables =
-    //    open Update
-
-    let interpretSet branches (variables:Map<string,Variable.Variable.contentsContainer>) =
-        //open Set
-        let interpretExpression exp =
-            match exp with
-            | 
-        match branches with
-        | Branch(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Vale),exp) :: [] ->
-            if variables.ContainsKey varName then
-                interpretExpression exp
-
-
-
-            else Error(sprintf "No variable declared %s" varName)
-        | _ -> Error(sprintf "Expected \"varName valueString\", got %A" branches)
-
-    let interpetDeclare branches (variables:Variable.Variable.contentsContainer) =
-        match branches with
-        | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
-            if variables.ContainsKey(varName) then Error(sprintf "Variable name \"%s\" has already been declared" varName)
-            else
-                if Map.containsKey varType Variable.Variable.validTypes then
-                    Map.add varName Variable.Variable.validTypes.[varType] variables
-                    |> fun x -> Result(x)
-                else Error(sprintf "Unrecognised variable type \"%s\"" varType)
-        | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
 
     let interpretConditionsList branches variables =
         let operators =
@@ -201,6 +118,151 @@ module Parse =
         | item :: _ -> Error(sprintf "Expected condition, got %A" item)
         | [] -> Error("Expected condition, ran out of tree")
 
+    let interpetSelect branches variables =
+        //open Select
+        let unwrapChildren =
+            match branches with
+            | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
+                UnwrapTwoResultsInto (fun x y -> Result(x,y,optionalLeaves)) (interpretColumnNameList wrappedColumnList) (interpretTableNameList tableNameList)
+            | Branch(Key(Column),_) :: item :: _ ->
+                Error (sprintf "Expected from branch, got %A" item)
+            | item :: _ ->
+                Error (sprintf "Expected column branch, got %A" item)
+            | [] ->
+                Error("Expected column branch, ran out of tree")
+
+        let (|MatchOrder|_|) opt =
+            match opt with
+            | Branch(Key(Order),_) :: rest -> Some(Error("Order is currently not supported"))
+            | _ -> None
+        let (|MatchLimit|_|) opt =
+            let matchOffset opt2 =
+                match opt2 with
+                | Item(Key(Offset),Literal(Token.Value(Token.Integer(offsetVal)))) :: [] -> Some(offsetVal)
+                | _ -> None
+            match opt with
+            | Branch(Key(Limit),limitOptions) :: [] ->
+                match limitOptions with
+                | Item(Key(Value),Literal(Token.Value(Token.Integer(limitVal)))) :: rest ->
+                    matchOffset rest
+                    |> fun x -> Some(Result(limitVal,x))
+                | _ -> Some(Error("Broken tree in matchlimit"))
+            | _ -> None
+        let dealWithOptionals opt =
+            match opt with
+            | Branch(Key(Where),condList) :: rest ->
+                match rest with
+                | MatchOrder err -> err
+                | MatchLimit res ->
+                    UnwrapTwoResultsThrough (fun x (y,z) -> x,y,z) (interpretConditionsList condList) res
+            | MatchOrder err -> err
+            | MatchLimit res -> UnwrapResultThrough (fun (x,y) -> None,x,y) res
+        let sendToBackend (colList,tabList,optional) =
+            dealWithOptionals optional
+            |> UnwrapResultThrough
+                (fun (condFunc,limitVal,offsetVal) ->
+                    Select.run colList tabList condFunc limitVal offsetVal
+                )
+        unwrapChildren
+        |> UnwrapResultThrough sendToBackend
+                
+    let interpetInsert branches (variables:Variable.Variable.contentsContainer) =
+        let interpretValueList nodeList =
+            let rec parse outLst inLst =
+                match inLst with
+                | Item(Key(Value),valueItem) :: rest ->
+                    interpretValueItem valueItem variables
+                    |> UnwrapResultInto (fun x -> parse (x::outLst) rest)
+                | [] -> Result(outLst)
+                | item :: _ -> Error(sprintf "Expected value item, got %A" item)
+            parse [] nodeList
+            |> UnwrapResultThrough (fun lst -> List.rev lst)
+        let (|MatchValueList|) nodeLst =
+            match nodeLst with
+            | Branch(Key(Value),valueList) :: [] ->
+                interpretValueList valueList
+            | [] -> Error("Expected value list, ran out of tree")
+            | other -> Error(sprintf "Expected value list, got %A" other)
+        let (|MatchColumnAndValueList|_|) nodeLst =
+            match nodeLst with
+            | Branch(Key(Column),columnNameList) :: rest ->
+                match rest with
+                | MatchValueList valueList ->
+                    UnwrapTwoResultsThrough (fun x y -> x,y) (interpretColumnNameList columnNameList) valueList
+                    |> fun x -> Some(x)
+            | _ -> None
+        let matchRest nodeLst =
+            match nodeLst with
+            | MatchColumnAndValueList matchedResult -> matchedResult
+            | MatchValueList matchedValueList ->
+                matchedValueList
+                |> UnwrapResultInto (fun x -> Result([],x))
+            | _ -> Error (sprintf "Expected column list or value list, got %A" nodeLst)
+        match branches with
+        | Item(Key(Into),Literal(Token.Name(tableName))) :: rest ->
+            matchRest rest
+            |> UnwrapResultInto (fun (colList,valueList) -> Insert.run tableName colList valueList)
+            |> fun func -> Backend.Database.run func
+        | item :: _ -> Error(sprintf "Expected table name, got %A" item)
+        | [] -> Error("Expected table name, but damaged tree, missing next branch")
+
+    //let interpetUpdate branches variables =
+    //    open Update
+
+    let interpretSet branches (variables:Map<string,Variable.Variable.contentsContainer>) =
+        //open Set
+        let interpretExpression exp =
+            let validOperators =
+                [
+                "+" , (+) ;
+                "-" , (-) ;
+                "*" , (*) ;
+                "/" , (/)
+                ]
+                |> Map.ofList
+            let interpretSetValue value =
+                match value with
+                | Item(Key(Select),_)
+                | Item(Key())
+            let rec parse outValue inLst =
+                match inLst with
+                | Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: rest ->
+                    if validOperators.ContainsKey op then
+                        interpretSetValue value
+
+
+
+
+                        validOperators.[op] outValue
+                    else Error(sprintf "Invalid operator in expression %s" op)
+                | [] -> Result(outValue)
+                | _ -> Error(sprintf "Expected operator and value, got %A" inLst)
+            match exp with
+            | Item(Key(Value),value) :: rest ->
+                interpretSetValue value
+                |> UnwrapResultInto (fun x -> parse x rest)
+            | _ -> Error(sprintf "Expected value, got %A" exp)
+        match branches with
+        | Branch(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Operator),exp) :: [] ->
+            if variables.ContainsKey varName then
+                interpretExpression exp
+
+
+
+            else Error(sprintf "No variable declared %s" varName)
+        | _ -> Error(sprintf "Expected \"varName valueString\", got %A" branches)
+
+    let interpetDeclare branches (variables:Variable.Variable.contentsContainer) =
+        match branches with
+        | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
+            if variables.ContainsKey(varName) then Error(sprintf "Variable name \"%s\" has already been declared" varName)
+            else
+                if Map.containsKey varType Variable.Variable.validTypes then
+                    Map.add varName Variable.Variable.validTypes.[varType] variables
+                    |> fun x -> Result(x)
+                else Error(sprintf "Unrecognised variable type \"%s\"" varType)
+        | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
+
     let interpetDelete branches variables =
         match branches with
         | Branch(Key(From),tableList) :: rest ->
@@ -211,29 +273,32 @@ module Parse =
             | item :: _ -> Error(sprintf "Expected nothing or conditions list, got %A" item)
             | [] -> Result(None)
             |> UnwrapTwoResultsInto (fun x y -> Delete.run x y) (interpretTableNameList tableList)
+            |> fun func -> Backend.Database.run func
         | item :: _ -> Error(sprintf "Expected table list, got %A" item)
         | [] -> Error("Expected table list, ran out of tree")
 
     let interpetCreate branches =
         let interpretColumnTypeItem children =
             match children with
-            | Item(Key(Name),Literal(Token.Name(colName))) :: Item(Key(Type),Literal(Token.Name(colType))) ::  [] ->
-                if Map.containsKey colType Variable.Variable.validTypes then (colName,Variable.Variable.validTypes.[colType])
+            | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Type),Literal(Token.Name(colType))) ::  [] ->
+                if Map.containsKey colType Variable.Variable.validTypes then Result(colName,Variable.Variable.validTypes.[colType])
                 else Error(sprintf "Unrecognised column type %s" colType)
-            | _ -> Error(sprinft "Unrecognised column-type pattern %A" children)
+            | _ -> Error(sprintf "Unrecognised column-type pattern %A" children)
         let interpretColumnTypeList children =
             let rec parse outLst (inLst:node list) =
                 match inLst with
                 | Branch(Key(Column),columnType) :: rest ->
                     interpretColumnTypeItem columnType
                     |> UnwrapResultInto (fun newItem -> parse (newItem :: outLst) rest)
+                | item :: _ -> Error(sprintf "Expected column node, got %A" item)
                 | [] -> Result(outLst)
+            parse [] children
         match branches with
-        | Item(Key(Name),Literal(Token.Name(tableName))) :: Branch(Key(Value),valueChildren) :: [] ->
+        | Item(Key(keyword.Name),Literal(Token.Name(tableName))) :: Branch(Key(Value),valueChildren) :: [] ->
             interpretColumnTypeList valueChildren
             |> fun valueList -> Create.run tableName (List.rev valueList)
             |> fun func -> Backend.Database.run func
-        | _ -> Error (sprinf "Unrecognised sequence after CREATE %A" branches)
+        | _ -> Error (sprintf "Unrecognised sequence after CREATE %A" branches)
 
     let runThroughTree (tree:node list) =
         let rec parse (branches:node list) (varMap:Variable.Variable.contentsContainer) (returnTableList:returnTableListType) = //Returntabletype list =
