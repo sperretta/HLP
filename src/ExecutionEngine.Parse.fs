@@ -31,26 +31,26 @@ module Parse =
                 Error("Expected column branch, ran out of tree")
         unwrapChildren
                 
+    let interpretValueItem value (variables:Variable.Variable.contentsContainer) =
+        match value with
+        | Item(Key(Number),Literal(Token.Value(numberItem))) ->
+            match numberItem with
+            | Token.Integer(num) -> Result(Variable.Variable.varContent.Integer (Some num))
+            | Token.Floating(num) -> Result(Variable.Variable.varContent.Float (Some num))
+            | Token.Byte(num) -> Result(Variable.Variable.varContent.Byte (Some num))
+            | Token.Boolean(num) -> Result(Variable.Variable.varContent.Boolean (Some num))
+        | Item(Key(String),Literal(Token.Name(stringItem))) ->
+            Result(Variable.Variable.varContent.String (Some stringItem))
+        | Item(Key(Variable),Literal(Token.Name(varName))) ->
+            Result(variables.[varName])
+        | _ -> Error(sprintf "Expected value item, got %A" value)
 
     let interpetInsert branches (variables:Variable.Variable.contentsContainer) =
-        let interpretValueItem value =
-            match value with
-            | Item(Key(Number),Literal(Token.Value(numberItem))) ->
-                match numberItem with
-                | Token.Integer(num) -> Result(Variable.Variable.varContent.Integer (Some num))
-                | Token.Floating(num) -> Result(Variable.Variable.varContent.Float (Some num))
-                | Token.Byte(num) -> Result(Variable.Variable.varContent.Byte (Some num))
-                | Token.Boolean(num) -> Result(Variable.Variable.varContent.Boolean (Some num))
-            | Item(Key(String),Literal(Token.Name(stringItem))) ->
-                Result(Variable.Variable.varContent.String (Some stringItem))
-            | Item(Key(Variable),Literal(Token.Name(varName))) ->
-                Result(variables.[varName])
-            | _ -> Error(sprintf "Expected value item, got %A" value)
         let interpretValueList nodeList =
             let rec parse outLst inLst =
                 match inLst with
                 | Item(Key(Value),valueItem) :: rest ->
-                    interpretValueItem valueItem
+                    interpretValueItem valueItem variables
                     |> UnwrapResultInto (fun x -> parse (x::outLst) rest)
                 | [] -> Result(outLst)
                 | item :: _ -> Error(sprintf "Expected value item, got %A" item)
@@ -111,8 +111,46 @@ module Parse =
                 else Error(sprintf "Unrecognised variable type \"%s\"" varType)
         | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
 
+    let interpretConditionsList branches variables =
+        let operators =
+            [
+            "=" , (=) ;
+            "<>" , (<>) ;
+            "<" , (<) ;
+            ">" , (>) ;
+            "<=" , (<=) ;
+            ">=" , (>=)
+            ]
+            |> Map.ofList
+        let newConditionFunc colName op value =
+            let valueType =
+                match value with
+                | 
+
+            fun (colData:Map<string,Variable.Variable.contentsContainer>) ->
+                if colData.ContainsKey colName then
+                    if Map.containsKey op operators then
+                        (operators.[op]) colData.[colName] 
+                    else Error(sprintf "Operator %s not recognised" op)
+                else Error(sprintf "Column name %s not recognised" colName)
+        let interpretCondition cond =
+            match cond with
+            | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: [] ->
+                newConditionFunc colName op value
+            | _ -> Error(sprintf "Expected condition, got %A" cond)
+        let rec parse
+        match branches with
+        | Branch(Key(Condition),cond)
+
     let interpetDelete branches variables =
-        open Delete
+        //open Delete
+        match branches with
+        | Branch(Key(From),tableList) :: rest
+            match rest with
+            | Branch(Key(Where),conditionsList) :: [] ->
+                interpretConditionsList conditionsList variables
+            | item :: _ -> Error(sprintf "Expected nothing or conditions list, got %A" item)
+            | [] -> Result(None)
 
     let interpetCreate branches =
         let interpretColumnTypeItem children =
