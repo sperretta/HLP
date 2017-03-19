@@ -330,8 +330,10 @@ module ExecutionEngineSelect =
 
     let readInFull pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
+    
     ///////////////////////////////////////////////////
-    let testFunction rowMap =
+    // Tests
+    (*let testFunction rowMap =
         match Map.find "ID" rowMap with
         | Int (Some a) when a > 15 && a < 20 -> Result true
         | _ -> Result false
@@ -342,4 +344,4 @@ module ExecutionEngineSelect =
     let selected = match dbRes with
                     | Error e -> Error e
                     | Result db ->
-                        select ["Names"; "ID"] ["Literary Characters"; "Movie Characters"] allFunction 2 2 db
+                        select ["Names"; "ID"] ["Literary Characters"; "Movie Characters"] allFunction 2 2 db *)
