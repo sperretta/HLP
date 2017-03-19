@@ -57,10 +57,16 @@ module Delete =
         | Error e -> Error e
         | Result _ -> Result nextTable     
 
+    let deleteRows deleteList testfunction db =
+        match deleteList, !db with
+
+
+        select columnList tableList testFunction db
 
     let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<database> =
         match testFunctionOption with
         | None -> deleteTables deleteList db
         | Some testFunction ->
+            deleteRows deleteList testfunction db
             
         
