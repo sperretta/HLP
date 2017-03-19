@@ -48,9 +48,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <Compile Include="ReturnControl.Main.fs" />
+    <Compile Include="Variable.fs" />
     <Compile Include="databaseStructure.fs" />
     <Compile Include="Token.fs" />
     <Compile Include="Tokeniser.fs" />
+    <Compile Include="Parser.ControlAndTypes.fs" />
+    <Compile Include="ReturnControl.AST.fs" />
+    <Compile Include="Parser.AST.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

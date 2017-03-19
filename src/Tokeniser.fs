@@ -1,9 +1,7 @@
 namespace Tokeniser
 module Tokeniser =
-    ///Type for dealing with program errors ?? Extract this to separate file
-    type ReturnCode<'a> =
-    | Result of 'a
-    | Error of string
+    ///Type for dealing with program errors
+    open ReturnControl.Main
 
     ///A list of tokens
     type tokens = Token.content list
