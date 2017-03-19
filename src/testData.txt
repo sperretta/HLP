@@ -9,4 +9,10 @@ TABLE
 Grades
 Subject String Grade Int Lecturer String
 String	Some	Maths   Int Some	40	String	Some	Smith
-String Some English Int None String Some Black
+String	Some	English Int None		String	Some	Black
+TABLE
+Movie Characters
+Names String ID Int Rating Int
+String	Some	Leiah	Int Some	19	Int		Some	80
+String	Some	Vader	Int Some	25	Int		Some	75
+String	Some	Kirk	Int Some	16	Int		Some	55 
