@@ -104,11 +104,23 @@ module Parse =
         | item :: _ -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, but damaged tree, missing next branch")
 
+    //let interpetUpdate branches variables =
+    //    open Update
 
-    let interpetUpdate branches variables =
-        open Update
-    let interpetSet branches variables =
-        open Set
+    let interpretSet branches (variables:Map<string,Variable.Variable.contentsContainer>) =
+        //open Set
+        let interpretExpression exp =
+            match exp with
+            | 
+        match branches with
+        | Branch(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Vale),exp) :: [] ->
+            if variables.ContainsKey varName then
+                interpretExpression exp
+
+
+
+            else Error(sprintf "No variable declared %s" varName)
+        | _ -> Error(sprintf "Expected \"varName valueString\", got %A" branches)
 
     let interpetDeclare branches (variables:Variable.Variable.contentsContainer) =
         match branches with
