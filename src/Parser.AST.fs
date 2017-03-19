@@ -337,7 +337,7 @@ module AST =
                     |> UnwrapResultInto (fun (nodeList,newTokenList,_) -> parse (Item(Key(Value),Branch(Key(Select),nodeList)) :: outLst) newTokenList false expressionType)
                 | Token.Operator(op) :: rest when not nextItem && Array.contains op mathsOperators ->
                     if Array.contains expressionType validMathsTypes then
-                        parse outLst rest true expressionType
+                        parse (Item(Key(Operator),Literal(Token.Operator(op))) :: outLst) rest true expressionType
                     else
                         Error(sprintf "%A is not a valid type to performs %s operator on" expressionType op)
                 | Token.Operator(op) :: _ when not nextItem ->
