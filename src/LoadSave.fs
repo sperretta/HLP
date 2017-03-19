@@ -4,6 +4,7 @@ module LoadSave =
     open System
     open databaseStructure.databaseStructure
 
+
     type ReturnCode<'a> = // From Matt
         | Result of 'a
         | Error of string
@@ -190,8 +191,10 @@ module LoadSave =
             | _, Error(e2) -> Error(e2)
             | Result typ, Result tab -> buildDatabase tab names typ
 
+
     let load pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
+
 
 ///////////////////////////////////////////////////
 // Functions to save a database to a text file.
@@ -244,6 +247,7 @@ module LoadSave =
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
             
+
     let save path database =
        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
          
@@ -323,7 +327,7 @@ module LoadSave =
    // let v = ReadInData outPath
 
 *)
- 
+
         
 //    printfn "%A" fileLines
  //   printfn "%A" k
