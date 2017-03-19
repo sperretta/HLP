@@ -1,4 +1,6 @@
-﻿    open System.IO
+﻿namespace LoadSave
+module LoadSave =
+    open System.IO
     open System
 
     type boxData = | String of Option<string>  // To be extended when the wanted data types have been decided
@@ -376,5 +378,3 @@ To save database:
     Extract table name
     Write "TABLE" 
 *)
-String.length "heelo"
-String.length "Hello world"
