@@ -4,100 +4,17 @@ module Insert =
     open System.IO
     open System
     open databaseStructure.databaseStructure
-
-    type ReturnCode<'a> = // From Matt
-        | Result of 'a
-        | Error of string
-
-    let UnwrapResultThrough func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> Result(func res)
-        | Error(str) -> Error(str)
-
-    let UnwrapResultInto func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> func res
-        | Error(str) -> Error(str)
-
-
+    open ReturnControl.Main
 
     //////////////////////////////////////////////////////////////////////
     // Used for building tests. Taken from readTextFile
-
-    let helperFunc list f F caller emes=
-        match list with
-        | "Some" :: c :: tail -> (c |> f |> Some |> F) :: caller tail
-        | "None" :: tail -> F None :: caller tail
-        | e :: tail -> (Some >> String) ("error: " + emes + ": " + e) :: caller tail
-        | [] -> [(Some >> String) ("error: " + emes + " empty list")]
-
-
-    let rec strProcess = function
-        | [] -> []
-        | a :: tail when a = "String" -> helperFunc tail (fun x -> x) String strProcess a
-        | a :: tail when a = "Int"    -> helperFunc tail int Int strProcess a
-        | a :: tail when a = "Float"  -> helperFunc tail float Float strProcess a
-        | a :: tail when a = "Byte"   -> helperFunc tail byte Byte strProcess a
-        | a :: tail when a = "Bool"   -> helperFunc tail System.Convert.ToBoolean Bool strProcess a
-        | e :: tail                   -> (Some >> String) ("error: " + e) :: (strProcess tail)
-         
-
-       
-    let checkType colType inpNext = 
-        match inpNext with
-        | String a -> colType = "String"
-        | Int a    -> colType = "Int"
-        | Float a  -> colType = "Float"
-        | Byte a   -> colType = "Byte"
-        | Bool a   -> colType = "Bool"
-
-
-    let rec matchInputListsRec columns inpData prevNode nextNode =
-        match (columns,inpData) with 
-        | ([],[]) -> ()
-        | (colName :: colType :: colTail, inpNext :: inpTail) when checkType colType inpNext->
-            let newNode = ref INilBox
-            nextNode := (BoxNode (colName, inpNext, prevNode, newNode))
-            matchInputListsRec colTail inpTail nextNode newNode
-        | _ -> printfn "Error: %A" (columns,inpData)
-    
-    let matchInputLists columns inpData =
-        let firstHead = ref INilBox
-        let nextNode  = ref INilBox
-        matchInputListsRec columns inpData firstHead nextNode
-        nextNode
 
     let listBuilder acc lowList =
         let newNode = ref INilRow
         acc := RowNode (lowList, newNode)
         newNode
 
-    let buildData columns inpData = 
-        let tmp = List.map (matchInputLists columns) inpData
-        let firstHead = ref INilRow
-        List.fold listBuilder firstHead tmp |> ignore
-        firstHead
-
-    let readInLine (inpString : string) =
-        inpString.Split [|' ';'\t'|] 
-        |> Array.toList |> List.filter (fun x -> x <> "")
-        |> strProcess
-
-    let cleanLine (inpString : string) =
-        inpString.Split [|' ';'\t'|] 
-        |> Array.toList |> List.filter (fun x -> x <> "")    
-    
-    let readTable inpStrings =
-        let splitStrings = List.map cleanLine inpStrings
-        let colNames = List.head splitStrings
-        let colData = List.tail inpStrings |> List.map readInLine
-        buildData colNames colData
-
-
-    // Used for building tests.
-    //////////////////////////////////////////////////////////////////////
-
-
+    //////////
     
     let rec getTableTypes thisDatabase tableName =
         match !thisDatabase with
@@ -166,31 +83,3 @@ module Insert =
         | _, None -> Error("INSERT: Table specified not found")
         | Some thisTable, Some typeSpec -> 
             addToTableWrapper thisTable typeSpec columnList valueList
-            
-             
-    /////////////////////////////////////////////////////////////
-    // Testingcode
-    (*let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
-    let myTable = readTable testSeparate
-    let tableTwo = readTable testSeparate
-    rowListFirstRow myTable
-    
-    myTable
-    tableTwo
-    let tail = ref INilTable
-    let tabThree = ref INilRow
-    let snd = ref (TableNode (tableTwo, "Second Table", [("Names", String None);("ID", Int None)], tail))
-    let mid = ref (TableNode (tabThree, "Third Table", [("Users", String None);("ID", Byte None)], snd))
-    let first = ref (TableNode (myTable, "First Table", [("Names", String None);("ID", Int None)], mid))
-    // first is now a database with two tables that can be used for testing.
-    chooseTable first "First Table"
-    chooseTable first "Second Table"
-    chooseTable first "Third Table"
-    getTableTypes first "First Table"
-    getTableTypes first "Third Table"
-
-    insert "Second Table" ["Names"] [String (Some "Harry")] first
-    insert "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
-
-    first // see results
-    *)
