@@ -238,7 +238,9 @@
 
     let rec strBuilder = function
         | [] -> []
-        | String (Some a) :: tail -> "String Some " + string a :: strBuilder tail
+        | String (Some a) :: tail -> 
+            let num = a.Split [|' ';'\t'|] |> Seq.length
+            "String Some " + string num + " " + a :: strBuilder tail
         | String None     :: tail -> "String None"             :: strBuilder tail
         | Int (Some a)    :: tail -> "Int Some " + string a    :: strBuilder tail
         | Int None        :: tail -> "Int None"                :: strBuilder tail
