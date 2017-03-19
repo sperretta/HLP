@@ -64,9 +64,33 @@
         | e :: tail ->        Error ("READ IN: Value must be an option " + emes + ": " + e)
         | [] ->               Error ("READ IN: " + emes + " empty list")
 
+    let rec helperStrProcessStrings list num =
+        match num,list with
+        | i,_ when i <= 0 -> Result ("",list)
+        | i,cur::tail -> UnwrapResultInto (fun (str, list) -> Result( (" "+cur+str), list) ) (helperStrProcessStrings tail (i - 1))
+        | i, [] -> Error "READ IN: String length specified wrongly"
+
+    let helperStrProcessStringsWrapper list caller =
+        match list with
+        | [] -> Error ("READ IN: String empty list")
+        | a :: t when a = "None" -> UnwrapResultThrough (fun rest -> String None :: rest) (caller t)
+        | a :: num :: t when a = "Some" -> 
+            let res = helperStrProcessStrings t (int num) 
+            match res with
+            | Error e -> Error e
+            | Result (str, tail) ->
+                UnwrapResultThrough (fun rest -> String (Some str.[1..]) :: rest) (caller tail)
+        | e :: _ -> Error ("READ IN: Value must be an option String: " + e)
+        (*let res = helperStrProcessStrings list num
+        match res with
+        | Error e -> Error e
+        | Result (str, tail) ->*)
+            
+
     let rec strProcess = function
         | [] -> Result []
-        | a :: tail when a = "String" -> helperStrProcess tail (fun x -> x) String strProcess a
+        //| a :: tail when a = "String" -> helperStrProcess tail (fun x -> x) String strProcess a
+        | a :: tail when a = "String" -> helperStrProcessStringsWrapper tail strProcess
         | a :: tail when a = "Int"    -> helperStrProcess tail int Int strProcess a
         | a :: tail when a = "Float"  -> helperStrProcess tail float Float strProcess a
         | a :: tail when a = "Byte"   -> helperStrProcess tail byte Byte strProcess a
@@ -294,8 +318,9 @@
     let someStruct = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\someStructureDataFile.txt"
     let structPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredDataFile.txt"
     let fullPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedDataFile.txt" 
+    let multiPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedMultiwordDataFile.txt" 
 
-    let dbRes = readInFull fullPath // Reads in data to a database as saved with final specification (17/3/17)
+    let dbRes = readInFull multiPath // Reads in data to a database as saved with final specification (17/3/17)
     match dbRes with
     | Error e -> Error e
     | Result db -> 
@@ -349,3 +374,5 @@ To save database:
     Extract table name
     Write "TABLE" 
 *)
+String.length "heelo"
+String.length "Hello world"
