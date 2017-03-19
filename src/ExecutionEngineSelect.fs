@@ -138,7 +138,14 @@ module ExecutionEngineSelect =
             transformDatabaseMapRec (Map.add tableName (tab,colTypes) map) nextTable
 
     let transformDatabaseMap db =
-        transformDatabaseMapRec Map.empty db    
+        transformDatabaseMapRec Map.empty db   
+        
+    let rec tranCols specifiedCols foundCols =
+         match specifiedCols, foundCols with
+         | [], _ -> Result []
+         | _, [] -> Error "SELECT: One of the specified columns was not found."
+         | specHead :: specTail, (foundString, foundBox) :: foundTail when specHead = foundString -> UnwrapResultThrough (fun tail -> (foundString, foundBox) :: tail) (tranCols specTail foundTail)
+         | _, (foundString, foundBox) :: foundTail -> tranCols specifiedCols foundTail
         
     let rec selectRec columnList tableList testFunction limit offset tableMap transformedTable =
         match tableList with
@@ -146,14 +153,18 @@ module ExecutionEngineSelect =
         | t1 :: tTail ->
             match readFromMap tableMap t1 " is not in database" with
             | Error e -> Error e
-            | Result (tab,tranCol) -> 
+            | Result (tab,cols) -> 
                 let attempt = testTable columnList tab testFunction limit offset 
                 match attempt with 
                 | Error e -> Error e
                 | Result tranTable ->
                     let nextTable = ref INilTable
-                    transformedTable := TableNode (tranTable, t1, tranCol, nextTable)
-                    selectRec columnList tTail testFunction limit offset tableMap nextTable
+                    let tranColRes = tranCols columnList cols 
+                    match tranColRes with
+                    | Error e -> Error e
+                    | Result tranCol ->
+                        transformedTable := TableNode (tranTable, t1, tranCol, nextTable)
+                        selectRec columnList tTail testFunction limit offset tableMap nextTable
 
 
     let select (columnList : string list) (tableList : string list) (testFunction : Map<string,boxData> -> ReturnCode<bool>) (limit : int) (offset : int) (db : database) : ReturnCode<database> =
@@ -324,27 +335,11 @@ module ExecutionEngineSelect =
         match Map.find "ID" rowMap with
         | Int (Some a) when a > 15 && a < 20 -> Result true
         | _ -> Result false
+    let allFunction rowMap = Result true
 
     let path = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt" 
     let dbRes = readInFull path
     let selected = match dbRes with
                     | Error e -> Error e
                     | Result db ->
-                        select ["Names"; "Credit"] ["Literary Characters"] testFunction 1 2 db
-
-
-
-       // select (columnList : string list) (tableList : string list) (testFunction : Map<string,boxData> -> ReturnCode<bool>) (limit : int) (offset : int) (db : database) : ReturnCode<database>
-
-
-
-    (*
-    let myMap = Map.ofList [("a", 13); ("b", 15)]
-    try 
-        Map.find "a" myMap |> Result 
-    with
-        notInMap -> Error "SELECT: Column name specified is not in table"
-
-    *)
-
-    // Change so transformed table only has the specified column names in the top-level specification.
+                        select ["Names"; "ID"] ["Literary Characters"; "Movie Characters"] allFunction 2 2 db
