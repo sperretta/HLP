@@ -203,9 +203,9 @@ module ExecutionEngineInsert =
             addToTableWrapper thisTable typeSpec columnList valueList
             
              
-
+    /////////////////////////////////////////////////////////////
     // Testingcode
-    let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
+    (*let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
     let myTable = readTable testSeparate
     let tableTwo = readTable testSeparate
     rowListFirstRow myTable
@@ -228,3 +228,4 @@ module ExecutionEngineInsert =
     insert "Third Table"  [] [String (Some "Harry"); Byte (Some 13uy)] first
 
     first // see results
+    *)
