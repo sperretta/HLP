@@ -259,13 +259,8 @@ module LoadSave =
     strProcess ["String"; "some"; "hei"]
     strProcess ["Strange"; "Some"; "Dragon"]
 
-    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\dataFile.txt"
-    let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFile.txt"
-    let outPathFull = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\outFileFull.txt"
-    let someStruct = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\someStructureDataFile.txt"
-    let structPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredDataFile.txt"
-    let fullPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedDataFile.txt" 
-    let multiPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedMultiwordDataFile.txt" 
+    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
+    let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\outFile.txt"
 
     let dbRes = load multiPath // Reads in data to a database as saved with final specification (17/3/17)
     match dbRes with
