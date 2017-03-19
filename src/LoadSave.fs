@@ -2,42 +2,7 @@
 module LoadSave =
     open System.IO
     open System
-
-    type boxData = | String of Option<string>  // To be extended when the wanted data types have been decided
-                   | Int of Option<int> 
-                   | Float of Option<float>                
-                   | Byte of Option<byte>     
-                   | Bool of Option<bool>
-
-    // A node has the parameter name (column name), the parameter value and links to the previous and next nodes
-    type boxList = BoxNode of ParName: string * Value: boxData * Prev : ref<boxList> * Tl : ref<boxList> | INilBox 
-    type row = ref<boxList>                                                                                       
-    // The nodes of the table-level list (rowList) have refs to the row-level lists (boxList).
-    type rowList = RowNode of BoxList : ref<boxList> * Tl : ref<rowList> | INilRow                            
-    type table = ref<rowList>  // Holds all the data in the table
-    // Holds all the tables in the database.
-    // A node has a table, a table name, a list with column names and types, and a tail pointing to the next table in the database.
-    type tableList = TableNode of topList : ref<rowList> * TableName : string * Columns : (string * boxData) list * Tl : ref<tableList> | INilTable 
-    type database = ref<tableList>
-
-    // Get the tail from a table (entry after last row)
-    let rec rowListLast thisList : table =
-        match !thisList with
-        | INilRow -> thisList
-        | RowNode (_, tail) -> rowListLast tail
-
-    // Get the first row from a table
-    let rowListFirstRow (thisList : table) =
-        match !thisList with
-        | INilRow -> None
-        | RowNode (row, _) -> Some row
-
-    // Get a specific table from a database
-    let rec chooseTable thisDatabase tableName =
-        match !thisDatabase with
-        | INilTable -> None
-        | TableNode (thisTable, thisName, _, _) when thisName = tableName -> Some thisTable
-        | TableNode (_, _, _, otherTables) -> chooseTable otherTables tableName
+    open databaseStructure.databaseStructure
 
     type ReturnCode<'a> = // From Matt
         | Result of 'a
@@ -82,12 +47,7 @@ module LoadSave =
             | Error e -> Error e
             | Result (str, tail) ->
                 UnwrapResultThrough (fun rest -> String (Some str.[1..]) :: rest) (caller tail)
-        | e :: _ -> Error ("READ IN: Value must be an option String: " + e)
-        (*let res = helperStrProcessStrings list num
-        match res with
-        | Error e -> Error e
-        | Result (str, tail) ->*)
-            
+        | e :: _ -> Error ("READ IN: Value must be an option String: " + e)         
 
     let rec strProcess = function
         | [] -> Result []
@@ -230,11 +190,9 @@ module LoadSave =
             | _, Error(e2) -> Error(e2)
             | Result typ, Result tab -> buildDatabase tab names typ
 
-    let readInFull pathName = 
+    let load pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
 
-
-        
 ///////////////////////////////////////////////////
 // Functions to save a database to a text file.
 
@@ -286,12 +244,12 @@ module LoadSave =
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
             
-    let saveDatabase path database =
+    let save path database =
        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
          
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Tests
-
+    (*
     //sortIntoMultipleRev ["TABLE"; "User Table"; "User String"; "X Y"; "Z W"; "TABLE"; "Table Two"; "ID Int"; "X Y"; "W Z"]
     //|> splitIntoThreeLists
     getTypes (cleanLine "User  String   ID Int")
@@ -324,12 +282,12 @@ module LoadSave =
     let fullPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedDataFile.txt" 
     let multiPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\structuredNamedMultiwordDataFile.txt" 
 
-    let dbRes = readInFull multiPath // Reads in data to a database as saved with final specification (17/3/17)
+    let dbRes = load multiPath // Reads in data to a database as saved with final specification (17/3/17)
     match dbRes with
     | Error e -> Error e
     | Result db -> 
-        saveDatabase outPathFull db // Writes all data into a database, saved with final specification (17/3/17)
-    let dbResCopy = readInFull outPathFull // Can be read back in.
+        save outPathFull db // Writes all data into a database, saved with final specification (17/3/17)
+    let dbResCopy = load outPathFull // Can be read back in.
     
     //let fileLines = readFile myPath
     //let k = readIn fileLines
@@ -364,7 +322,7 @@ module LoadSave =
     //File.WriteAllLines(outPath, u)
    // let v = ReadInData outPath
 
-
+*)
  
         
 //    printfn "%A" fileLines
