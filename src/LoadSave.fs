@@ -223,11 +223,17 @@ module LoadSave =
         | (colName, Byte   _) :: tail -> colName + " Byte   " + extractBoxTypes tail
         | (colName, Bool   _) :: tail -> colName + " Bool   " + extractBoxTypes tail
 
+    let tableToStrings thisTable =
+        match !thisTable with 
+        | INilTable -> []
+        | TableNode (thisTable, tableName, tableTypes, nextTable) ->
+            "TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) )
+
     let rec saveDatabaseStrings database =
         match !database with
         | INilTable -> []
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
-            ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
+            (tableToStrings database) @ saveDatabaseStrings nextTable
             
     let save path database =
        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
@@ -262,11 +268,11 @@ module LoadSave =
     let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
     let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\outFile.txt"
 
-    let dbRes = load multiPath // Reads in data to a database as saved with final specification (17/3/17)
+    let dbRes = load myPath // Reads in data to a database as saved with final specification (19/3/17)
     match dbRes with
     | Error e -> Error e
     | Result db -> 
-        save outPathFull db // Writes all data into a database, saved with final specification (17/3/17)
+        save outPath db // Writes all data into a database, saved with final specification (19/3/17)
     let dbResCopy = load outPathFull // Can be read back in.
     
     //let fileLines = readFile myPath
