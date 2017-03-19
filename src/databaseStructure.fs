@@ -3,6 +3,7 @@ module databaseStructure =
 
     open System.IO
     open System
+    open ReturnControl.Main
 
     type boxData = | String of Option<string>  // To be extended when the wanted data types have been decided
                    | Int of Option<int> 
@@ -39,3 +40,14 @@ module databaseStructure =
         | INilTable -> None
         | TableNode (thisTable, thisName, _, _) when thisName = tableName -> Some thisTable
         | TableNode (_, _, _, otherTables) -> chooseTable otherTables tableName
+
+    // Get unit table: Take a table and return Result value if there's only one cell, else error.
+    let tableGetUnitValue thisTable =
+         match !thisTable with
+         | INilRow -> Error "Table is empty"
+         | RowNode (cellList, tail) when !tail = INilRow ->
+            match !cellList with
+            | INilBox -> Error "Rows are empty"
+            | BoxNode(boxName, boxVal, _, nextBox) when !nextBox = INilBox -> Result boxVal
+            | _ -> Error "Table is larger than one cell"
+         | _ -> Error "Table is larger than one cell"
