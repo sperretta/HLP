@@ -1,5 +1,5 @@
 ﻿namespace ExecutionEngine
-module ExecutionEngineSelect =
+module Select =
 
     open System.IO
     open System
