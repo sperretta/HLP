@@ -3,24 +3,7 @@ module LoadSave =
     open System.IO
     open System
     open databaseStructure.databaseStructure
-
-
-    type ReturnCode<'a> = // From Matt
-        | Result of 'a
-        | Error of string
-
-    let UnwrapResultThrough func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> Result(func res)
-        | Error(str) -> Error(str)
-
-    let UnwrapResultInto func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> func res
-        | Error(str) -> Error(str)
-
-// Functions defined elsewhere
-//////////////////////////////////////////////////////////////////////
+    open ReturnControl.Main
 
 ///////////////////////////////////////////////////
 // Functions to read in a database from a text file.
@@ -191,7 +174,6 @@ module LoadSave =
             | _, Error(e2) -> Error(e2)
             | Result typ, Result tab -> buildDatabase tab names typ
 
-
     let load pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
 
@@ -247,7 +229,6 @@ module LoadSave =
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             ("TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) ) ) @ saveDatabaseStrings nextTable
             
-
     let save path database =
        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
          
