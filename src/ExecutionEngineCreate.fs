@@ -4,22 +4,7 @@ module Create =
     open System.IO
     open System
     open databaseStructure.databaseStructure
-
-    type ReturnCode<'a> = // From Matt
-        | Result of 'a
-        | Error of string
-
-    let UnwrapResultThrough func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> Result(func res)
-        | Error(str) -> Error(str)
-
-    let UnwrapResultInto func (from:ReturnCode<'a>) = // From Matt
-        match from with
-        | Result(res) -> func res
-        | Error(str) -> Error(str)
-
-    ////////////////////////////////////////////////
+    open ReturnControl.Main
 
     let rec insertEmptyTable columnTypeList tableName database =
         match !database with
