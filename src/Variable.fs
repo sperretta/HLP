@@ -1,4 +1,4 @@
-﻿namespace Variable
+namespace Variable
 module Variable =
     type varType =
         | Integer
