@@ -72,10 +72,10 @@ module ExecutionEngineCreate =
     
     ///////////////////////////////////////////////
     // Tests
-    let myDatabase : database = ref INilTable
-    create "User Table" [("User Name", String None);("User ID", Int None);("High Score", Int None)] myDatabase
-    myDatabase
-    create "Grade Table" [("Subject", String None);("Grade", Float None)] myDatabase
-    myDatabase
-    create "User Table" [("Name", String None); ("Byte", Byte None)] myDatabase // Should result in error
-    myDatabase
+    //let myDatabase : database = ref INilTable
+    //create "User Table" [("User Name", String None);("User ID", Int None);("High Score", Int None)] myDatabase
+    //myDatabase
+    //create "Grade Table" [("Subject", String None);("Grade", Float None)] myDatabase
+    //myDatabase
+    //create "User Table" [("Name", String None); ("Byte", Byte None)] myDatabase // Should result in error
+    //myDatabase
