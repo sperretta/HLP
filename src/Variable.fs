@@ -7,24 +7,17 @@ module Variable =
         | Byte
         | String
 
-    type varContent =
-        | Integer of int option
-        | Float of float option
-        | Boolean of bool option
-        | Byte of byte option
-        | String of string option
-
     type typeContainer = Map<string,varType>
-
-    type contentsContainer = Map<string,varContent>
+    type contentsContainer = Map<string,varType*databaseStructure.databaseStructure.boxData>
+    type rowContainer = Map<string,databaseStructure.databaseStructure.boxData>
 
     let validTypes =
         [
-        "string" , varType.String ;
-        "byte" , varType.Byte ;
-        "int" , varType.Integer ;
-        "float" , varType.Float ;
-        "boolean" , varType.Boolean
+        "string" , String ;
+        "byte" , Byte ;
+        "int" , Integer ;
+        "float" , Float ;
+        "boolean" , Boolean
         ]
         |> Map.ofList
 

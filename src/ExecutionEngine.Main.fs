@@ -11,3 +11,5 @@ module Main =
         | Function of FunName:ColumnFunctions*ColName:string
         | Name of string
         | Alias of ColName:string*AliasName:string
+
+    type rowData = Map<string,databaseStructure.databaseStructure.boxData>
