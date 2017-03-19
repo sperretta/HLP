@@ -16,12 +16,22 @@ module Parse =
     //            match rest with
     //            | 
 
+    let interpretTableNameList branches =
+        let rec parse outLst inLst =
+            match inLst with
+            | Literal(Token.Name(tableName)) :: rest ->
+                parse (tableName :: outLst) rest
+            | item :: _ -> Error(sprintf "Expected table name, got %A" item)
+            | [] -> Result(outLst)
+        parse [] branches
+        |> UnwrapResultThrough (fun x -> List.rev x)
+
     let interpetSelect branches variables =
         //open Select
         let unwrapChildren =
             match branches with
             | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
-                ((unwrapWrappedColumnList wrappedColumnList),(unwrapTableNameList tableNameList),optionalLeaves)
+                ((unwrapWrappedColumnList wrappedColumnList),(interpretTableNameList tableNameList),optionalLeaves)
                 |> fun x -> Result(x)
             | Branch(Key(Column),_) :: item :: _ ->
                 Error (sprintf "Expected from branch, got %A" item)
@@ -122,15 +132,29 @@ module Parse =
             ">=" , (>=)
             ]
             |> Map.ofList
-        let newConditionFunc colName op value =
+        let newConditionFunc colName op (value:node) =
+            let getSimplifiedType = function
+                | Variable.Variable.varContent.Integer _ -> Variable.Variable.varContent.Integer None
+                | Variable.Variable.varContent.Float _ -> Variable.Variable.varContent.Float None
+                | Variable.Variable.varContent.Boolean _ -> Variable.Variable.varContent.Boolean None
+                | Variable.Variable.varContent.Byte _ -> Variable.Variable.varContent.Byte None
+                | Variable.Variable.varContent.String _ -> Variable.Variable.varContent.String None
+            let interpretedValue =
+                interpretValueItem value variables
             let valueType =
-                match value with
-                | 
-
+                interpretedValue
+                |> UnwrapResultThrough getSimplifiedType
             fun (colData:Map<string,Variable.Variable.contentsContainer>) ->
                 if colData.ContainsKey colName then
+                    let simplifiedColType =
+                        colData.[colName]
+                        |> getSimplifiedType
                     if Map.containsKey op operators then
-                        (operators.[op]) colData.[colName] 
+                        match valueType with
+                        | Result(colType) when colType = simplifiedColType ->
+                            UnwrapResultThrough (operators.[op] colData.[colName]) interpretedValue
+                        | Error(str) -> Error(str)
+                        | _ -> Error(sprintf "Type of column and value do not match for %s" colName)
                     else Error(sprintf "Operator %s not recognised" op)
                 else Error(sprintf "Column name %s not recognised" colName)
         let interpretCondition cond =
@@ -138,19 +162,45 @@ module Parse =
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: [] ->
                 newConditionFunc colName op value
             | _ -> Error(sprintf "Expected condition, got %A" cond)
-        let rec parse
+        let rec parse (outFunc:Map<string,Variable.Variable.contentsContainer> -> ReturnCode<bool>) inLst =
+            match inLst with
+            | Branch(Key(And),cond) :: rest ->
+                fun x ->
+                    match (interpretCondition cond) x with
+                    | Result(y) ->
+                        match outFunc x with
+                        | Result(z) -> Result(y && z)
+                        | Error(str) -> Error(str)
+                    | Error(str) -> Error(str)
+                |> fun x -> parse x rest
+            | Branch(Key(Or),cond) :: rest ->
+                fun x ->
+                    match (interpretCondition cond) x with
+                    | Result(y) ->
+                        match outFunc x with
+                        | Result(z) -> Result(y || z)
+                        | Error(str) -> Error(str)
+                    | Error(str) -> Error(str)
+                |> fun x -> parse x rest
+            | [] -> Result(outFunc)
         match branches with
-        | Branch(Key(Condition),cond)
+        | Branch(Key(Condition),cond) :: rest ->
+            parse (interpretCondition cond) rest
+        | item :: _ -> Error(sprintf "Expected condition, got %A" item)
+        | [] -> Error("Expected condition, ran out of tree")
 
     let interpetDelete branches variables =
-        //open Delete
         match branches with
-        | Branch(Key(From),tableList) :: rest
+        | Branch(Key(From),tableList) :: rest ->
             match rest with
             | Branch(Key(Where),conditionsList) :: [] ->
                 interpretConditionsList conditionsList variables
+                |> UnwrapResultInto (fun x -> Result(Some x))
             | item :: _ -> Error(sprintf "Expected nothing or conditions list, got %A" item)
             | [] -> Result(None)
+            |> UnwrapTwoResultsInto (fun x y -> Delete.run x y) (interpretTableNameList tableList)
+        | item :: _ -> Error(sprintf "Expected table list, got %A" item)
+        | [] -> Error("Expected table list, ran out of tree")
 
     let interpetCreate branches =
         let interpretColumnTypeItem children =
