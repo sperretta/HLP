@@ -57,6 +57,7 @@
 	<None Include="App.config" />
 	<Compile Include="..\src\ReturnControl.Main.fs" />
 	<Compile Include="..\src\databaseStructure.fs" />
+	<Compile Include="..\src\LoadSave.fs" />
 	<Compile Include="..\src\ExecutionEngineCreate.fs" />
 	<Compile Include="..\src\ExecutionEngineInsert.fs" />
 	<Compile Include="..\src\ExecutionEngineDelete.fs" />
