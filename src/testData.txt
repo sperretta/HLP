@@ -1,18 +1,13 @@
 TABLE
 Literary Characters
 Names String ID Int Credit Float Hex Byte Member Bool
-String	Some	Orlando	Int	Some	45	Float	Some	0.2     Byte	Some	0x23	Bool None
-String	Some	Rebecca	Int	Some	17	Float	Some	3.14159	Byte	None			Bool Some True
-String	Some	Ada		Int	None		Float	Some	2.718   Byte	None			Bool Some False
-String	Some	Alice   Int	Some	18	Float	Some	1.001   Byte	Some	0xFF	Bool None
+String Some 1	Orlando	Int	Some	45	Float	Some	0.2     Byte	Some	0x23	Bool None
+String Some	3	Rebecca	de Winter Int	Some	17	Float	Some	3.14159	Byte	None			Bool Some True
+String Some	2	Ada	Lovelace	Int	None		Float	Some	2.718   Byte	None			Bool Some False
+String Some 3	Alice in Wonderland  Int	Some	18	Float	Some	1.001   Byte	Some	0xFF	Bool None
 TABLE
 Grades
 Subject String Grade Int Lecturer String
-String	Some	Maths   Int Some	40	String	Some	Smith
-String	Some	English Int None		String	Some	Black
-TABLE
-Movie Characters
-Names String ID Int Rating Int
-String	Some	Leiah	Int Some	19	Int		Some	80
-String	Some	Vader	Int Some	25	Int		Some	75
-String	Some	Kirk	Int Some	16	Int		Some	55 
+String Some 3	Maths and Science	Int Some	40	String	None
+String Some	2	English Literature Int None		String	Some	2	Ms. Black
+String None							Int Some	15	String	Some	2	Ms. Smith
