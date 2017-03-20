@@ -166,7 +166,7 @@ module Parse =
             |> UnwrapResultThrough (fun (condFunc,limitVal,offsetVal) -> Select.select colList tabList condFunc limitVal offsetVal)
             |> UnwrapResultInto DBWrapper.DBWrapper.execute
         unwrapChildren
-        |> UnwrapResultThrough sendToBackend
+        |> UnwrapResultInto sendToBackend
                 
     let interpretInsert branches (variables:Variable.Variable.contentsContainer) =
         let interpretValueList nodeList =
@@ -311,7 +311,7 @@ module Parse =
         | _ -> Error (sprintf "Unrecognised sequence after CREATE %A" branches)
 
     let runThroughTree (tree:node list) =
-        let rec parse (branches:node list) (varMap:Variable.contentsContainer) (returnTableList:databaseStructure.tableList list) = //Returntabletype list =
+        let rec parse (branches:node list) (varMap:Variable.contentsContainer) (returnTableList:databaseStructure.database list) = //Returntabletype list =
             match branches with
             | Branch(Key(Select),children) :: rest ->
                 interpretSelect children varMap
