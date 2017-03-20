@@ -65,8 +65,8 @@
     <Compile Include="ReturnControl.AST.fs" />
     <Compile Include="Parser.AST.fs" />
     <Compile Include="ExecutionEngineCreate.fs" />
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Auth.fs" />
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

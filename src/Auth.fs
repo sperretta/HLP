@@ -31,7 +31,7 @@ module Auth =
     
     let sessionTime = 100.0 // Session time out after 100 minutes.
     
-    let userPassDat = File.ReadAllLines(@"C:\Users\Simon\Documents\HLP\src\userpass.dat") |> Array.toList
+    let userPassDat = File.ReadAllLines(@"..\..\userpass.dat") |> Array.toList
     
     let splitUserPass (line : string) : (string * string)  =
         let split = line.Split ' '
