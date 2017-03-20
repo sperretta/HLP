@@ -58,7 +58,9 @@
 	<Compile Include="..\src\ReturnControl.Main.fs" />
 	<Compile Include="..\src\databaseStructure.fs" />
 	<Compile Include="..\src\ExecutionEngineCreate.fs" />
+	<Compile Include="..\src\ExecutionEngineInsert.fs" />
 	<Compile Include="ExecutionEngineTestsCreate.fs" />
+	<Compile Include="ExecutionEngineTestsInsert.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
     <Content Include="packages.config" />
