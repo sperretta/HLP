@@ -154,15 +154,17 @@ module Parse =
                 match rest with
                 | MatchOrder err -> err
                 | MatchLimit res ->
-                    UnwrapTwoResultsThrough (fun x (y,z) -> Some(x),y,z) (interpretConditionsList condList variables) res
+                    UnwrapTwoResultsThrough (fun x (y,z) -> Some(x),Some(y),z) (interpretConditionsList condList variables) res
+                | [] -> UnwrapResultThrough (fun x -> Some(x),None,None) (interpretConditionsList condList variables)
+                | _ -> Error(sprintf "Unrecognised option in select %A" rest)
             | MatchOrder err -> err
-            | MatchLimit res -> UnwrapResultThrough (fun (x,y) -> None,x,y) res
+            | MatchLimit res -> UnwrapResultThrough (fun (x,y) -> None,Some(x),y) res
+            | [] -> Result(None,None,None)
+            | _ -> Error(sprintf "Unrecognised option in select %A" opt)
         let sendToBackend (colList,tabList,optional) =
             dealWithOptionals optional
-            |> UnwrapResultThrough
-                (fun (condFunc,limitVal,offsetVal) ->
-                    Select.select colList tabList condFunc limitVal offsetVal
-                )
+            |> UnwrapResultThrough (fun (condFunc,limitVal,offsetVal) -> Select.select colList tabList condFunc limitVal offsetVal)
+            |> UnwrapResultInto DBWrapper.DBWrapper.execute
         unwrapChildren
         |> UnwrapResultThrough sendToBackend
                 
@@ -202,7 +204,7 @@ module Parse =
         | Item(Key(Into),Literal(Token.Name(tableName))) :: rest ->
             matchRest rest
             |> UnwrapResultThrough (fun (colList,valueList) -> Insert.insert tableName colList valueList)
-            |> UnwrapResultThrough (fun func -> Backend.Database.run func)
+            |> UnwrapResultInto (fun func -> DBWrapper.DBWrapper.execute func)
         | item :: _ -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, but damaged tree, missing next branch")
 
@@ -280,8 +282,8 @@ module Parse =
                 |> UnwrapResultInto (fun x -> Result(Some x))
             | item :: _ -> Error(sprintf "Expected nothing or conditions list, got %A" item)
             | [] -> Result(None)
-            |> UnwrapTwoResultsInto (fun x y -> Delete.delete x y) (interpretTableNameList tableList)
-            |> fun func -> Backend.Database.run func
+            |> UnwrapTwoResultsThrough (fun x y -> Delete.delete x y) (interpretTableNameList tableList)
+            |> UnwrapResultInto (fun func -> DBWrapper.DBWrapper.execute func)
         | item :: _ -> Error(sprintf "Expected table list, got %A" item)
         | [] -> Error("Expected table list, ran out of tree")
 
@@ -305,7 +307,7 @@ module Parse =
         | Item(Key(keyword.Name),Literal(Token.Name(tableName))) :: Branch(Key(Value),valueChildren) :: [] ->
             interpretColumnTypeList valueChildren
             |> UnwrapResultThrough (fun valueList -> Create.create tableName (List.rev valueList))
-            |> UnwrapResultThrough (fun func -> Backend.Database.run func)
+            |> UnwrapResultInto (fun func -> DBWrapper.DBWrapper.execute func)
         | _ -> Error (sprintf "Unrecognised sequence after CREATE %A" branches)
 
     let runThroughTree (tree:node list) =

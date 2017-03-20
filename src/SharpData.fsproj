@@ -51,11 +51,11 @@
     <Compile Include="ReturnControl.Main.fs" />
     <Compile Include="databaseStructure.fs" />
     <Compile Include="Variable.fs" />
-	 <Compile Include="LoadSave.fs" />
-	 <Compile Include="ExecutionEngineInsert.fs" />
-	 <Compile Include="ExecutionEngineCreate.fs" />
-	 <Compile Include="ExecutionEngineSelect.fs" />
-	 <Compile Include="ExecutionEngineDelete.fs" />
+    <Compile Include="LoadSave.fs" />
+    <Compile Include="ExecutionEngineInsert.fs" />
+    <Compile Include="ExecutionEngineCreate.fs" />
+    <Compile Include="ExecutionEngineSelect.fs" />
+    <Compile Include="ExecutionEngineDelete.fs" />
     <Compile Include="Token.fs" />
     <Compile Include="Tokeniser.fs" />
     <Compile Include="Parser.ControlAndTypes.fs" />
@@ -63,8 +63,8 @@
     <Compile Include="Parser.AST.fs" />
     <Compile Include="ReturnControl.ExecutionEngine.fs" />
     <Compile Include="ExecutionEngine.Main.fs" />
-    <Compile Include="ExecutionEngine.Parse.fs" />
     <Compile Include="DBWrapper.fs" />
+    <Compile Include="ExecutionEngine.Parse.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
