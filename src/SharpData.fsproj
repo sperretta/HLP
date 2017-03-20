@@ -66,6 +66,7 @@
     <Compile Include="Parser.AST.fs" />
     <Compile Include="ExecutionEngineCreate.fs" />
     <Compile Include="Auth.fs" />
+    <Compile Include="Server.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
