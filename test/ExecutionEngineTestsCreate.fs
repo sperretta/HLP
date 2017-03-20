@@ -10,7 +10,7 @@ module Create =
 
     [<Tests>]
     let testExEngineCreate =
-        printfn "Ad-hoc tests to verify ExecutionEngine.Create"
+        // Ad-hoc tests to verify ExecutionEngine.Create
         testList "Tests for the ExecutionEngine.Create module" [
             testCase "test 1" <| fun _ ->
                 printfn "Test adding a table to an empty database"
@@ -35,7 +35,7 @@ module Create =
                 Expect.equal fail (Error "CREATE: The table name specified is already in the database.") "Attempt to add another table with the same name"
         ]
     let propertiesExEngineCreate =
-        printfn "Random tests to verify ExecutionEngine.Create"
+        // Random tests to verify ExecutionEngine.Create
         testList "FsCheck ExecutionEngine.Create" [
             testProperty "Add a random table to an empy database" <| fun a b ->
                 let db = ref INilTable
@@ -45,5 +45,4 @@ module Create =
                 create "T1" a db |> ignore
                 create "T2" b db |> ignore
                 create "T3" c db = Result ()
-
 ]
