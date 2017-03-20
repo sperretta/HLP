@@ -75,15 +75,22 @@ module databaseStructure =
         | TableNode (_, _, _, otherTables) -> chooseTable otherTables tableName
 
     // Get unit table: Take a table and return Result value if there's only one cell, else error.
-    let tableGetUnitValue thisTable =
-         match !thisTable with
-         | INilRow -> Error "Table is empty"
-         | RowNode (cellList, tail) when !tail = INilRow ->
-            match !cellList with
-            | INilBox -> Error "Rows are empty"
-            | BoxNode(boxName, boxVal, _, nextBox) when !nextBox = INilBox -> Result boxVal
-            | _ -> Error "Table is larger than one cell"
-         | _ -> Error "Table is larger than one cell"
+    let tableGetUnitValue (thisDatabase :database)=
+        match !thisDatabase with
+        | INilTable -> Error "Database is empty"
+        | TableNode (thisTable, _, _, tail) when !tail = INilTable ->
+             match !thisTable with
+             | INilRow -> Error "Table is empty"
+             | RowNode (cellList, tail) when !tail = INilRow ->
+                match !cellList with
+                | INilBox -> Error "Rows are empty"
+                | BoxNode(boxName, boxVal, _, nextBox) when !nextBox = INilBox -> Result boxVal
+                | _ -> Error "Table is larger than one cell"
+             | _ -> Error "Table is larger than one cell"
+        | _ -> Error "Database is larger than one cell"
+
+    //let unitTable = ref (TableNode (ref (RowNode (ref(BoxNode ("Names", String (Some "Sharp"),ref INilBox, ref INilBox)) ,ref INilRow)), "Table One", [("Names", String None)], ref INilTable))
+    //tableGetUnitValue unitTable
 
     let rec transformRowMapRec map restOfRow =
         match !restOfRow with
