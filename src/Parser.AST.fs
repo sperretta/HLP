@@ -390,7 +390,7 @@ module AST =
             |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
         let createParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
-            |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "FROM")
+            |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "TABLE")
             |> ReturnWrapper NoVarsInput NoVarsOutput ColumnTypeList
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         match tokenList with
