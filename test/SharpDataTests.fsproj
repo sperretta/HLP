@@ -54,9 +54,13 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+	<None Include="App.config" />
+	<Compile Include="..\src\ReturnControl.Main.fs" />
+	<Compile Include="..\src\databaseStructure.fs" />
+	<Compile Include="..\src\ExecutionEngineCreate.fs" />
+	<Compile Include="ExecutionEngineTestsCreate.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
-    <None Include="App.config" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

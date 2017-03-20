@@ -2,6 +2,7 @@
 // See the 'F# Tutorial' project for more help.
 
 open Expecto
+open ExecutionEngineTests.Create
 
 [<Tests>]
 let tests = printfn "Tests go under this attribute"
@@ -9,5 +10,7 @@ let tests = printfn "Tests go under this attribute"
 
 [<EntryPoint>]
 let main argv = 
-    printfn "%A" argv
+    runTests defaultConfig testExEngineCreate |> ignore
+    printfn "Press any key to EXIT"
+    System.Console.ReadKey() |> ignore
     0 // return an integer exit code
