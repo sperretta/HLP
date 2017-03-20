@@ -5,7 +5,8 @@ module Delete =
     open System
     open databaseStructure.databaseStructure
     open ReturnControl.Main
-    open Select
+
+
 
     let rec copyBox box tranBox prevTran =
         match !box with
@@ -15,7 +16,7 @@ module Delete =
             tranBox := BoxNode (value, colName, prevTran, nextTran)
             copyBox next nextTran tranBox
 
-    let rec copyRow row tranRow =
+    let rec copyRow row (tranRow : table) =
         match !row with
         | INilRow -> ()
         | RowNode (vals, last) ->
@@ -23,6 +24,7 @@ module Delete =
             let rowCopy = ref INilBox
             copyBox vals rowCopy rowHead
             let nextTran = ref INilRow
+            tranRow := RowNode (rowCopy, nextTran)
             copyRow last nextTran
             
     let copyTable db tranTable =
@@ -34,7 +36,6 @@ module Delete =
             let nextTable = ref INilTable
             tranTable := TableNode (rowHead, tabName, cols, nextTable)
 
-
     let rec deleteTablesRec deleteList db (transTable : tableList ref)=
         match deleteList, !db with
         | [], INilTable -> Result () // Finished list for deletion and the database
@@ -44,7 +45,7 @@ module Delete =
             | INilTable -> Error "DELETE: Table unsuccessfully copied"
             | TableNode (_, _, _, nextTable) ->
                 deleteTablesRec deleteList tableTail nextTable
-        | t1 :: tTail, INilTable -> Error ("DELETE: " + t1 + " specified for deletion but not found.") // Finished database but not list for deletion
+        | t1 :: tTail, INilTable -> Error ("DELETE: '" + t1 + "' specified for deletion but not found.") // Finished database but not list for deletion
         | t1 :: tTail, TableNode (thisTable, tabName, cols, tableTail) when tabName = t1 -> // Found a table to delete
             deleteTablesRec tTail tableTail transTable
         | _, TableNode (thisTable, tabName, cols, tableTail) -> // This table should not be deleted so will copy it over
@@ -69,7 +70,6 @@ module Delete =
                 let newRow = ref INilRow
                 transTable := RowNode (boxHead, newRow)
                 deleteCertainRows nextRow testFunction newRow
- 
 
     let rec deleteRowsRec deleteList testFunction db transTable =
         match deleteList, !db with
@@ -80,7 +80,7 @@ module Delete =
             | INilTable -> Error "DELETE: Table unsuccessfully copied"
             | TableNode (_, _, _, nextTable) ->
                 deleteRowsRec deleteList testFunction tableTail nextTable
-        | t1 :: tTail, INilTable -> Error ("DELETE: " + t1 + " specified for deletion but not found.")
+        | t1 :: tTail, INilTable -> Error ("DELETE: '" + t1 + "' specified for deletion but not found.")
         | t1 :: tTail, TableNode (thisTable, tabName, cols, tableTail) when tabName = t1 ->
             let rowHead = ref INilRow
             match deleteCertainRows thisTable testFunction rowHead with
@@ -96,8 +96,6 @@ module Delete =
             | TableNode (_, _, _, nextTable) ->
                 deleteRowsRec deleteList testFunction tableTail nextTable
 
-        //select columnList tableList testFunction db
-
     let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<database> =
         let head = ref INilTable
         match testFunctionOption with
@@ -110,4 +108,24 @@ module Delete =
             | Error e -> Error e
             | Result _ -> Result head
 
-    open 
+    (*open LoadSave.LoadSave
+
+    let func1 (map : Map<string,boxData> ):  ReturnCode<bool> =
+        match Map.find "Member" map with
+        | Bool (Some _) -> Result false
+        | Bool None -> Result true
+    let func2 (map : Map<string,boxData> ):  ReturnCode<bool> =
+        match Map.find "Grade" map with
+        | Int None -> Result false
+        | Int _ -> Result true
+
+    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
+    let myDB = load myPath |> (fun (Result a) -> a)
+    delete ["Literary Characters"] None myDB
+    delete ["A"] None myDB
+    delete [] None myDB
+    delete ["Literary Characters";"Grades"] None myDB
+    delete ["Literary Characters"] (Some func1) myDB
+    delete ["Grades"] (Some func2) myDB
+    delete [] (Some func1) myDB
+    myDB*)

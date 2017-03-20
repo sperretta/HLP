@@ -7,21 +7,6 @@ module Select =
     open ReturnControl.Main
 
 
-    let rec transformRowMapRec map restOfRow =
-        match !restOfRow with
-        | INilBox -> map
-        | BoxNode(colName, colVal, _, nextBox) ->
-            transformRowMapRec (Map.add colName colVal map) nextBox
-
-    let transformRowMap row =
-        transformRowMapRec Map.empty row
-
-    let readFromMap myMap (key : string) e =
-        try 
-            Map.find key myMap |> Result 
-        with
-            notInMap -> "SELECT: '" + key + "'" + e |> Error 
-
     let rec newRowRec columnList rowMap prevNode thisNode =
         match columnList with
         | [] -> Result ()
@@ -68,16 +53,7 @@ module Select =
         let run = testTableRec columnList thisTable testFunction limit offset nextRow
         match run with
         | Error e -> Error e
-        | Result _ -> Result nextRow
-
-    let rec transformDatabaseMapRec map restOfDatabase =
-        match !restOfDatabase with
-        | INilTable -> map
-        | TableNode(tab, tableName, colTypes,nextTable) ->
-            transformDatabaseMapRec (Map.add tableName (tab,colTypes) map) nextTable
-
-    let transformDatabaseMap db =
-        transformDatabaseMapRec Map.empty db   
+        | Result _ -> Result nextRow 
         
     let rec tranCols specifiedCols foundCols =
          match specifiedCols, foundCols with
