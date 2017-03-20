@@ -5,6 +5,7 @@ module Parse =
     open ReturnControl.ExecutionEngine
 
     open Main
+    open databaseStructure
 
     open Tokeniser
     open Variable
@@ -41,12 +42,12 @@ module Parse =
         match value with
         | Item(Key(Number),Literal(Token.Value(numberItem))) ->
             match numberItem with
-            | Token.Integer(num) -> Result(Variable.varContent.Integer (Some num))
-            | Token.Floating(num) -> Result(Variable.varContent.Float (Some num))
-            | Token.Byte(num) -> Result(Variable.varContent.Byte (Some num))
-            | Token.Boolean(num) -> Result(Variable.varContent.Boolean (Some num))
+            | Token.Integer(num) -> Result(databaseStructure.Int (Some num))
+            | Token.Floating(num) -> Result(databaseStructure.Float (Some num))
+            | Token.Byte(num) -> Result(databaseStructure.Byte (Some num))
+            | Token.Boolean(num) -> Result(databaseStructure.Bool (Some num))
         | Item(Key(String),Literal(Token.Name(stringItem))) ->
-            Result(Variable.varContent.String (Some stringItem))
+            Result(databaseStructure.String (Some stringItem))
         | Item(Key(Variable),Literal(Token.Name(varName))) ->
             Result(variables.[varName])
         | _ -> Error(sprintf "Expected value item, got %A" value)
@@ -64,11 +65,11 @@ module Parse =
             |> Map.ofList
         let newConditionFunc colName op (value:node) =
             let getSimplifiedType = function
-                | Variable.varContent.Integer _ -> Variable.varContent.Integer None
-                | Variable.varContent.Float _ -> Variable.varContent.Float None
-                | Variable.varContent.Boolean _ -> Variable.varContent.Boolean None
-                | Variable.varContent.Byte _ -> Variable.varContent.Byte None
-                | Variable.varContent.String _ -> Variable.varContent.String None
+                | databaseStructure.Int _ -> Variable.Integer
+                | databaseStructure.Float _ -> Variable.Float
+                | databaseStructure.Bool _ -> Variable.Boolean
+                | databaseStructure.Byte _ -> Variable.Byte
+                | databaseStructure.String _ -> Variable.String
             let interpretedValue =
                 interpretValueItem value variables
             let valueType =
@@ -90,7 +91,7 @@ module Parse =
         let interpretCondition cond =
             match cond with
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: [] ->
-                newConditionFunc colName op value
+                Result(newConditionFunc colName op value)
             | _ -> Error(sprintf "Expected condition, got %A" cond)
         let rec parse (outFunc:Map<string,Variable.Variable.contentsContainer> -> ReturnCode<bool>) inLst =
             match inLst with
@@ -256,8 +257,8 @@ module Parse =
         | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
             if variables.ContainsKey(varName) then Error(sprintf "Variable name \"%s\" has already been declared" varName)
             else
-                if Map.containsKey varType Variable.Variable.validTypes then
-                    Map.add varName Variable.Variable.validTypes.[varType] variables
+                if Map.containsKey varType Variable.validTypes then
+                    Map.add varName ((*Variable.validTypes.[varType],*)Variable.validDatabaseTypes.[varType]) variables
                     |> fun x -> Result(x)
                 else Error(sprintf "Unrecognised variable type \"%s\"" varType)
         | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
