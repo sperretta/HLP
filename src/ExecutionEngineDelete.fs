@@ -97,17 +97,21 @@ module Delete =
             | TableNode (_, _, _, nextTable) ->
                 deleteRowsRec deleteList testFunction tableTail nextTable
 
-    let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<database> =
+    let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<'a> =
         let head = ref INilTable
         match testFunctionOption with
         | None -> 
             match deleteTablesRec deleteList db head with
             | Error e -> Error e
-            | Result _ -> Result head
+            | Result _ -> 
+                db := !head
+                Result ()
         | Some testFunction ->
             match deleteRowsRec deleteList testFunction db head with
             | Error e -> Error e
-            | Result _ -> Result head
+            | Result _ -> 
+                db := !head
+                Result ()
 
     (*open LoadSave.LoadSave
 
@@ -129,4 +133,5 @@ module Delete =
     delete ["Literary Characters"] (Some func1) myDB
     delete ["Grades"] (Some func2) myDB
     delete [] (Some func1) myDB
-    myDB*)
+    myDB
+    *)
