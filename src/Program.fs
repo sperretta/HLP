@@ -1,4 +1,4 @@
-﻿open Logger
+open Logger
 
 [<EntryPoint>]
 let main argv = 
