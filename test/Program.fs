@@ -11,6 +11,7 @@ let tests = printfn "Tests go under this attribute"
 [<EntryPoint>]
 let main argv = 
     runTests defaultConfig testExEngineCreate |> ignore
+    runTests defaultConfig propertiesExEngineCreate |> ignore
     printfn "Press any key to EXIT"
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code
