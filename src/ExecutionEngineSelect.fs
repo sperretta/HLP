@@ -25,7 +25,7 @@ module Select =
 
     let rec testTableRec columnList thisTable testFunction limit offset nextRow =
         match limit, offset with
-        | i, j when i<=0 -> Result()
+        | i, j when i=0 -> Result()
         | i, j when j>0 -> 
             match !thisTable with
             | INilRow -> Result()
@@ -81,9 +81,31 @@ module Select =
                         transformedTable := TableNode (tranTable, t1, tranCol, nextTable)
                         selectRec columnList tTail testFunction limit offset tableMap nextTable
 
-    let select (columnList : string list) (tableList : string list) (testFunction : Map<string,boxData> -> ReturnCode<bool>) (limit : int) (offset : int) (db : database) : ReturnCode<database> =
+    let evaluateOption noneOption = function
+        | None -> noneOption
+        | Some value -> value
+
+    let acceptAll map = Result true
+
+    let select (columnList : string list) (tableList : string list) (testFunctionOpt : (Map<string,boxData> -> ReturnCode<bool>) option) (limitOpt : int option) (offsetOpt : int option) (db : database) : ReturnCode<database> =
         let tableMap = transformDatabaseMap db
         let transformedTable = ref INilTable
+        let limit = evaluateOption -1 limitOpt
+        let offset = evaluateOption 0 offsetOpt
+        let testFunction = evaluateOption acceptAll testFunctionOpt
         match selectRec columnList tableList testFunction limit offset tableMap transformedTable with
         | Error e -> Error e
         | Result _ -> Result transformedTable
+
+  (*  open LoadSave.LoadSave
+    let path = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
+    let myDRes = load path
+
+    let testFunc map =
+        match Map.find "ID" map with
+        | Int (Some i) when i < 20  -> Result false
+        | _                         -> Result true
+
+    match myDRes with
+    | Result myD ->
+        select ["Names"; "ID"] ["Literary Characters"] (Some testFunc) None None myD*)
