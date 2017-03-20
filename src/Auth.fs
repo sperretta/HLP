@@ -1,5 +1,8 @@
 ﻿namespace Auth
 
+open System
+open System.Runtime.Serialization
+
 open Tokeniser
 open ReturnControl.Main
 
@@ -88,3 +91,121 @@ module Auth =
 
     let runQuery (token : Guid) (query : string) : string =
         "SUCCESSSTRING"
+
+    // Auth
+
+    [<DataContract>]
+    type AuthPayload = 
+        {
+            [<field: DataMember(Name = "username")>]
+            username : string;
+            [<field: DataMember(Name = "password")>]
+            password : string;
+        }
+
+    [<DataContract>]
+    type AuthResponse = 
+        {
+            [<field: DataMember(Name = "username")>]
+            username : string;
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+            [<field: DataMember(Name = "expiry")>]
+            expiry : string;
+        }
+
+    let AuthProcess ( ap : AuthPayload ) : AuthResponse = 
+        match authUser ap.username ap.password with
+              | AuthStruct s -> { username = s.username; authToken = s.authToken; expiry = (s.expiryTime).ToString("dd.MM.yy HH:mm") }
+              | AuthFailure -> { username = ""; authToken = Guid.Empty; expiry = (System.DateTime.UtcNow).ToString("dd.MM.yy HH:mm") }
+
+    // Invalidate
+
+    [<DataContract>]
+    type InvalidatePayload = 
+        {
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+        }
+
+    [<DataContract>]
+    type InvalidateResponse = 
+        {
+            [<field: DataMember(Name = "status")>]
+            status : int;
+        }
+
+    let InvalidateProcess ( ip : InvalidatePayload ) : InvalidateResponse = 
+        match invalidateToken ip.authToken with
+              | Success -> { status = 0 }
+              | _ -> { status = 1 }
+
+    // Refresh
+
+    [<DataContract>]
+    type RefreshPayload = 
+        {
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+        }
+
+    [<DataContract>]
+    type RefreshResponse = 
+        {
+            [<field: DataMember(Name = "username")>]
+            username : string;
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+            [<field: DataMember(Name = "expiry")>]
+            expiry : string;
+        }
+
+    let RefreshProcess ( rp : RefreshPayload ) : RefreshResponse =
+        match refreshToken rp.authToken with
+              | AuthStruct t -> { username = t.username; authToken = t.authToken; expiry = (t.expiryTime).ToString("dd.MM.yy HH:mm") }
+              | AuthFailure -> { username = ""; authToken = Guid.Empty; expiry = (System.DateTime.UtcNow).ToString("dd.MM.yy HH:mm") }
+
+    // Check
+
+    [<DataContract>]
+    type CheckPayload = 
+        {
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+        }
+
+    [<DataContract>]
+    type CheckResult = 
+        {
+            [<field: DataMember(Name = "status")>]
+            status : int;
+        }
+
+    let CheckProcess ( cp : CheckPayload ) : CheckResult = 
+        match checkToken cp.authToken with
+              | ValidToken -> { status = 0 }
+              | ExpiredToken ->  { status = 1 }
+              | InvalidToken -> { status = 2 }
+
+    // Query
+
+    [<DataContract>]
+    type QueryPayload = 
+        {
+            [<field: DataMember(Name = "authToken")>]
+            authToken : Guid;
+            [<field: DataMember(Name = "query")>]
+            query : string;
+        }
+
+    [<DataContract>]
+    type QueryResponse = 
+        {
+            [<field: DataMember(Name = "result")>]
+            result : string;
+        }
+
+    let QueryProcess ( qp : QueryPayload ) : QueryResponse =
+        match checkToken qp.authToken with
+              | ValidToken -> { result = runQuery qp.authToken qp.query }
+              | _ -> { result = "ERRORSTRING" }
