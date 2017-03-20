@@ -87,5 +87,4 @@ module Auth =
                | _ -> AuthFailure
 
     let runQuery (token : Guid) (query : string) : string =
-        let queryTree = query |> Tokeniser.getTokens |> UnwrapResultInto Parser.AST.getTree
-        ""
+        "SUCCESSSTRING"
