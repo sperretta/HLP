@@ -4,6 +4,7 @@
 open Expecto
 open ExecutionEngineTests.Create
 open ExecutionEngineTests.Insert
+open ExecutionEngineTests.Delete
 
 [<Tests>]
 let tests = printfn "Tests go under this attribute"
@@ -19,6 +20,12 @@ let main argv =
     runTests defaultConfig testExEngineInsert |> ignore
     printfn "Random tests to verify ExecutionEngine.Insert"
     runTests defaultConfig propertiesExEngineInsert |> ignore
+    printfn "Ad-hoc tests to verify ExecutionEngine.Delete"
+    runTests defaultConfig testExEngineDelete |> ignore
+    printfn "Random tests to verify ExecutionEngine.Delete"
+    runTests defaultConfig propertiesExEngineDelete |> ignore
+ 
     printfn "Press any key to EXIT"
+    
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code
