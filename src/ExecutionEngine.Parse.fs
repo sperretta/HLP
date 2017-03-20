@@ -93,30 +93,29 @@ module Parse =
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: [] ->
                 Result(newConditionFunc colName op value)
             | _ -> Error(sprintf "Expected condition, got %A" cond)
-        let rec parse (outFunc:Map<string,Variable.Variable.contentsContainer> -> ReturnCode<bool>) inLst =
-            match inLst with
-            | Branch(Key(And),cond) :: rest ->
+        let rec parse (outFunc:Variable.rowContainer -> ReturnCode<bool>) inLst =
+            let specialFunction combiner rest unwrappedFunc =
                 fun x ->
-                    match (interpretCondition cond) x with
+                    match unwrappedFunc x with
                     | Result(y) ->
                         match outFunc x with
                         | Result(z) -> Result(y && z)
                         | Error(str) -> Error(str)
                     | Error(str) -> Error(str)
                 |> fun x -> parse x rest
+            match inLst with
+            | Branch(Key(And),cond) :: rest ->
+                interpretCondition cond
+                |> UnwrapResultInto (specialFunction (&&) rest)
             | Branch(Key(Or),cond) :: rest ->
-                fun x ->
-                    match (interpretCondition cond) x with
-                    | Result(y) ->
-                        match outFunc x with
-                        | Result(z) -> Result(y || z)
-                        | Error(str) -> Error(str)
-                    | Error(str) -> Error(str)
-                |> fun x -> parse x rest
+                interpretCondition cond
+                |> UnwrapResultInto (specialFunction (||) rest)
             | [] -> Result(outFunc)
+            | item :: _ -> Error(sprintf "Expected AND or OR, got %A" item)
         match branches with
         | Branch(Key(Condition),cond) :: rest ->
-            parse (interpretCondition cond) rest
+            interpretCondition cond
+            |> UnwrapResultInto (fun baseFunc -> parse baseFunc rest)
         | item :: _ -> Error(sprintf "Expected condition, got %A" item)
         | [] -> Error("Expected condition, ran out of tree")
 

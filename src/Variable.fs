@@ -8,8 +8,8 @@ module Variable =
         | String
 
     type typeContainer = Map<string,varType>
-    type contentsContainer = Map<string,databaseStructure.databaseStructure.boxData>
     type rowContainer = Map<string,databaseStructure.databaseStructure.boxData>
+    type contentsContainer = rowContainer
 
     let validTypes =
         [
