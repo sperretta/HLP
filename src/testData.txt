@@ -9,5 +9,5 @@ TABLE
 Grades
 Subject String Grade Int Lecturer String
 String Some 3	Maths and Science	Int Some	40	String	None
-String Some	2	English Litterature Int None		String	Some	2	Ms. Black
+String Some	2	English Literature Int None		String	Some	2	Ms. Black
 String None							Int Some	15	String	Some	2	Ms. Smith

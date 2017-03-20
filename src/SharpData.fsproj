@@ -55,6 +55,7 @@
 	<Compile Include="ExecutionEngineInsert.fs" />
 	<Compile Include="ExecutionEngineCreate.fs" />
 	<Compile Include="ExecutionEngineSelect.fs" />
+	<Compile Include="ExecutionEngineDelete.fs" />
     <Compile Include="Token.fs" />
     <Compile Include="Tokeniser.fs" />
     <Compile Include="Parser.ControlAndTypes.fs" />

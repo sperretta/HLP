@@ -259,3 +259,6 @@ Debug
 *.user
 obj
 bin
+
+# Generated files
+src/outFile.txt

@@ -51,3 +51,27 @@ module databaseStructure =
             | BoxNode(boxName, boxVal, _, nextBox) when !nextBox = INilBox -> Result boxVal
             | _ -> Error "Table is larger than one cell"
          | _ -> Error "Table is larger than one cell"
+
+    let rec transformRowMapRec map restOfRow =
+        match !restOfRow with
+        | INilBox -> map
+        | BoxNode(colName, colVal, _, nextBox) ->
+            transformRowMapRec (Map.add colName colVal map) nextBox
+
+    let transformRowMap row =
+        transformRowMapRec Map.empty row
+
+    let readFromMap myMap (key : string) e =
+        try 
+            Map.find key myMap |> Result 
+        with
+            notInMap -> "SELECT: '" + key + "'" + e |> Error 
+   
+    let rec transformDatabaseMapRec map restOfDatabase =
+        match !restOfDatabase with
+        | INilTable -> map
+        | TableNode(tab, tableName, colTypes,nextTable) ->
+            transformDatabaseMapRec (Map.add tableName (tab,colTypes) map) nextTable
+
+    let transformDatabaseMap db =
+        transformDatabaseMapRec Map.empty db  
