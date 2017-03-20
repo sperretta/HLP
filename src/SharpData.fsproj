@@ -64,6 +64,7 @@
     <Compile Include="ReturnControl.ExecutionEngine.fs" />
     <Compile Include="ExecutionEngine.Main.fs" />
     <Compile Include="ExecutionEngine.Parse.fs" />
+    <Compile Include="DBWrapper.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
