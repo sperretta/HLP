@@ -31,8 +31,8 @@ module Select =
             | true -> Result true
             | _ -> Result false
 
-    makeConv cList C1
-    makeValidFunc cList C1 (Int None)
+    //makeConv cList C1
+    //makeValidFunc cList C1 (Int None)
 
     [<Tests>]
     let testExEngineSelect =
@@ -45,8 +45,8 @@ module Select =
                 | Error _ -> Expect.equal ( 0) ( -1) "Could not load database"
                 | Result myDB ->
                     let myDBCopy1 = select ["Subject";"Grade";"Lecturer"] ["Grades"] None None None myDB
-                    let myDBCopy2 = delete ["Literary Characters"] None myDB
-                    Expect.equal ( string myDBCopy1) ( string myDBCopy2) "Delete / select table"
+                    delete ["Literary Characters"] None myDB |> ignore
+                    Expect.equal ( string myDBCopy1) ( string (Result myDB)) "Delete / select table"
             testCase "test 2" <| fun _ ->
                 printfn "Test selecting one whole table, all options"
                 let myDBRes = load @"..\..\..\src\testData.txt"
