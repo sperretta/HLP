@@ -66,6 +66,7 @@
     <Compile Include="DBWrapper.fs" />
     <Compile Include="Variable.Printer.fs" />
     <Compile Include="ExecutionEngine.Parse.fs" />
+    <Compile Include="Logger.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
