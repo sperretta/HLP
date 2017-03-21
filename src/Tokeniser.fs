@@ -46,7 +46,7 @@ module Tokeniser =
         let output (op:string) (rest:char list) =
             match rest with
             | [] -> Some(op,[])
-            | ch :: tail when Array.contains ch alphanum || isWhitespace ch -> Some(op,ch::tail)
+            | ch :: tail when Array.contains ch alphanum || isWhitespace ch || isEndStatement ch -> Some(op,ch::tail)
             | _ -> None
         ///Check if a character is a single length operator
         let isOp1 (ch:char) =
@@ -65,8 +65,8 @@ module Tokeniser =
                     None
             | _ -> None
         match str with
-        | ch1 :: rest when isOp1 ch1 -> output (charToString ch1) rest
         | Match2Ops (opStr,rest) -> output opStr rest
+        | ch1 :: rest when isOp1 ch1 -> output (charToString ch1) rest
         | _ -> None
 
     ///Pattern match for integers
