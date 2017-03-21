@@ -201,7 +201,7 @@ module Parse =
                 |> UnwrapResultInto (fun x -> Result([],x))
             | _ -> Error (sprintf "Expected column list or value list, got %A" nodeLst)
         match branches with
-        | Item(Key(Into),Literal(Token.Name(tableName))) :: rest ->
+        | Item(Key(keyword.Name),Literal(Token.Name(tableName))) :: rest ->
             matchRest rest
             |> UnwrapResultThrough (fun (colList,valueList) -> Insert.insert tableName colList valueList)
             |> UnwrapResultInto (fun func -> DBWrapper.DBWrapper.execute func)
