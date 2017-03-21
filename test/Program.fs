@@ -6,6 +6,7 @@ open ExecutionEngineTests.Create
 open ExecutionEngineTests.Insert
 open ExecutionEngineTests.Delete
 open ExecutionEngineTests.Select
+open LoadSaveTests.Test
 
 
 [<Tests>]
@@ -30,7 +31,11 @@ let main argv =
     runTests defaultConfig testExEngineSelect |> ignore
     printfn "Random tests to verify ExecutionEngine.Select"
     runTests defaultConfig propertiesExEngineSelect |> ignore
- 
+    printfn "Ad-hoc tests to verify LoadSave"
+    runTests defaultConfig testLoadSave |> ignore
+    printfn "Random tests to verify LoadSave"
+    runTests defaultConfig propertiesLoadSave |> ignore
+
     printfn "Press any key to EXIT"
     
     System.Console.ReadKey() |> ignore

@@ -62,6 +62,7 @@
 	<Compile Include="..\src\ExecutionEngineInsert.fs" />
 	<Compile Include="..\src\ExecutionEngineDelete.fs" />
 	<Compile Include="..\src\ExecutionEngineSelect.fs" />
+	<Compile Include="LoadSaveTests.fs" />
 	<Compile Include="ExecutionEngineTestsCreate.fs" />
 	<Compile Include="ExecutionEngineTestsInsert.fs" />
 	<Compile Include="ExecutionEngineTestsDelete.fs" />
