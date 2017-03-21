@@ -206,14 +206,17 @@ module AST =
         | [] ->
             Error(sprintf "Expected keyword \"%s\", ran out of tokens" wrapperWord)
 
-    let ColumnNameList () (tokenList:Tokeniser.tokens) = //?? Need to look for an end bracket
+    let ColumnNameList () (tokenList:Tokeniser.tokens) =
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numColumns:int) =
             match lst with
             | Token.Name(name) :: rest when nextItem -> parse (Item(Key(Name),Literal(Token.Name(name))) :: outLst) rest false (numColumns+1)
-            | Token.Operator(",") :: rest when not nextItem -> parse outLst rest false numColumns
+            | Token.Operator(",") :: rest when not nextItem -> parse outLst rest true numColumns
             | item :: rest when nextItem -> Error(sprintf "Expected column name, got %A" item)
             | [] when nextItem -> Error("Expected column name, ran out of tokens")
-            | rest -> Result(outLst,rest,numColumns)
+            | Token.Operator(")") :: rest -> Result(outLst,rest,numColumns)
+            | item :: rest when not nextItem -> Error(sprintf "Expected comma or bracket, got %A" item)
+            | [] when not nextItem -> Error("Expected comma or bracket, ran out of tokens")
+            | _ -> Error(sprintf "Expected something other than %A" lst)
         match tokenList with
         | Token.Operator("(") :: rest ->
             parse [] rest true 0
