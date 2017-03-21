@@ -7,6 +7,8 @@ module LoadSave =
 
 ///////////////////////////////////////////////////
 // Functions to read in a database from a text file.
+    
+    // Used to read in other values than strings
     let helperStrProcess list f F caller emes=
         match list with
         | "Some" :: c :: tail -> UnwrapResultThrough (fun a -> (c |> f |> Some |> F) :: a) (caller tail)
@@ -21,6 +23,7 @@ module LoadSave =
         | i,cur::tail -> UnwrapResultInto (fun (str, list) -> Result( (" "+cur+str), list) ) (helperStrProcessStrings tail (i - 1))
         | i, [] -> Error "READ IN: String length specified wrongly"
 
+    // Used to read in strings. Different as these can be multi-word.
     let helperStrProcessStringsWrapper list caller =
         match list with
         | [] -> Error ("READ IN: String empty list")
@@ -33,9 +36,9 @@ module LoadSave =
                 UnwrapResultThrough (fun rest -> String (Some str.[1..]) :: rest) (caller tail)
         | e :: _ -> Error ("READ IN: Value must be an option String: " + e)         
 
+    // Processes the list of strings found when reading in a row and splitting by words.
     let rec strProcess = function
         | [] -> Result []
-        //| a :: tail when a = "String" -> helperStrProcess tail (fun x -> x) String strProcess a
         | a :: tail when a = "String" -> helperStrProcessStringsWrapper tail strProcess
         | a :: tail when a = "Int"    -> helperStrProcess tail int Int strProcess a
         | a :: tail when a = "Float"  -> helperStrProcess tail float Float strProcess a
@@ -43,6 +46,7 @@ module LoadSave =
         | a :: tail when a = "Bool"   -> helperStrProcess tail System.Convert.ToBoolean Bool strProcess a
         | e :: tail                   -> Error ("READ IN: Data type specified not valid " + e)
          
+    // Checks that the value given matches the column datatype.
     let compStringType colType inpNext = 
         match inpNext with
         | String a -> colType = "String"
@@ -51,6 +55,7 @@ module LoadSave =
         | Byte a   -> colType = "Byte"
         | Bool a   -> colType = "Bool"
 
+    // Recursive function called by matchInputLists
     let rec matchInputListsRec columns inpData prevNode nextNode =
         match (columns,inpData) with 
         | ([],[]) -> Result()
@@ -60,12 +65,14 @@ module LoadSave =
             matchInputListsRec colTail inpTail nextNode newNode
         | _ -> Error("READ IN: If columns are specified, there should be as many columns as values given.")
     
+    // Matches the list of input columns with the list of input values
     let matchInputLists columns inpData =
         let firstHead = ref INilBox
         let nextNode  = ref INilBox
         let attempt = matchInputListsRec columns inpData firstHead nextNode
         UnwrapResultThrough (fun a -> nextNode) attempt
 
+    // Used to build up a row from a list of cells and a pointer to use to reference it
     let listBuilder accList lowList =
         match accList,lowList with
         | Error(e1),Error(e2) -> Error(e1+e2)
@@ -76,6 +83,7 @@ module LoadSave =
             acc := RowNode (list, newNode)
             Result newNode
 
+    // Builds a database from a list of cell values and a list of column names
     let buildData columns (inpData : ReturnCode<boxData list> list) = 
         let tmp = List.map (UnwrapResultInto (matchInputLists columns)) inpData
         let firstHead = ref INilRow
@@ -84,22 +92,31 @@ module LoadSave =
         | Error(e) -> Error(e)
         | Result _ -> Result firstHead
 
+    // Takes a line from a textfile, represented as a single string, and splits it on spaces and tabs
+    // then removes whitespace
     let cleanLine (inpString : string) =
         inpString.Split [|' ';'\t'|] 
         |> Array.toList |> List.filter (fun x -> x <> "")
 
+    // Takes a list of strings, each string representing a line from a textfile.
+    // Separate them into words, and uses the first to define the column names
+    // for a table, and the others to define the cell values for the rows in the table
+    // Returns a pointer to the built-up table
     let readTable inpStrings =
         let splitStrings = List.map cleanLine inpStrings
         let colNames = List.head splitStrings
         let colData = List.tail splitStrings |> List.map strProcess
         buildData colNames colData
 
+    // Used to find when one Table starts and another ends
     let rec allInOneTable inpStrings rowList =
         match inpStrings with
         | [] -> (List.rev rowList,[])
         | a :: tail when a = "TABLE" -> (List.rev rowList,inpStrings)
         | a :: tail -> allInOneTable tail (a :: rowList)
 
+    // Takes a list of input strings, and returns a list of tuples of table names and a string list, where this
+    // lower string list has the input lines for column types and the cell rows
     let rec sortIntoMultipleRev inpList =
         let (table, otherStrings) = allInOneTable inpList []
         match inpList with
@@ -113,6 +130,7 @@ module LoadSave =
                 Result ((tableName, table) :: later)
         | _ -> Error("READ IN: A table must have a table name")
 
+    // Called by splitIntoThreeLists in the fold function
     let splitIntoThreeListsHelper (tabName, typeData) acc =
         match acc, typeData with
         | Error(e), _ -> Error(e)
@@ -120,9 +138,16 @@ module LoadSave =
             Result (tabName :: nameAcc, typeString :: typeAcc, (typeString :: dataString) :: dataAcc)
         | _,_ -> Error("A table must have data types specified") 
 
+    // splits a list of tuples of table names and column and cell data into three lists
+    // The first has the table names
+    // The second has the table types
+    // The third has tuples of types and cell data
     let splitIntoThreeLists inpList =
         List.foldBack splitIntoThreeListsHelper inpList (Result ([], [], []))
 
+    // Used to extract the types from a list of strings by taking the string for column data type,
+    // adding that to a list with "None" and calling strProcess. That will return a list with a 
+    // single BoxData value, which is the column type
     let rec getTypes = function
         | [] -> Result []
         | colName :: colType :: tail -> 
@@ -137,6 +162,7 @@ module LoadSave =
                     Result ( (colName, (List.head tmp2) ) :: nOnes )
         | _ -> Error "READ IN: Column name given but no type specified."
 
+    // Recursive function called by buildDatabase
     let rec buildDatabaseRec tableList tableNames tableTypes thisNode =
         match tableList, tableNames, tableTypes with
         | ([],[],[]) -> Result ()
@@ -146,12 +172,15 @@ module LoadSave =
             buildDatabaseRec tableTail nameTail typeTail nextNode
         | _ -> Error "READ IN: Unequal amount of tables, table names and table type specifications given"
 
+    // Function called by buildDatabaseWrapper
     let buildDatabase tableList tableNames tableTypes =
         let firstNode = ref INilTable
         match buildDatabaseRec tableList tableNames tableTypes firstNode with
         | Error e -> Error e
         | Result _ -> Result firstNode
     
+    // Changes a list of returnCodes to a Returncode of list. If any of the list elements
+    // are errors then those errors are returned, otherwise the list od the successful values is returned
     let returnCodeListFlattener (lis : ReturnCode<'a> list) =
         List.foldBack (fun elRes accRes -> match elRes,accRes with
                                             | Error(e1), Error(e2) -> Error(e1+e2)
@@ -159,6 +188,11 @@ module LoadSave =
                                             | _, Error(e2) -> Error(e2)
                                             | Result el, Result acc -> Result (el :: acc)   ) lis (Result []) 
 
+    // Takes the input strings for a whole database, and
+    // - splits it into lists of table names, column names and types, and cell lists (rows). This is decodeRed
+    // - extracts types by calling getTypes
+    // - extracts tables by calling readTable
+    // - builds a database by combining tables, table names and table types.
     let buildDatabaseWrapper inpStrings =
         let decodeRes = inpStrings |> sortIntoMultipleRev |> UnwrapResultInto splitIntoThreeLists
         match decodeRes with
@@ -174,13 +208,19 @@ module LoadSave =
             | _, Error(e2) -> Error(e2)
             | Result typ, Result tab -> buildDatabase tab names typ
 
+    // Loads the database stored at pathName. pathName should be specified as @""
+    // and can be either relative or absolute paths
     let load pathName = 
         pathName |> IO.File.ReadLines |> Seq.toList |> buildDatabaseWrapper
+
+
+
 
 
 ///////////////////////////////////////////////////
 // Functions to save a database to a text file.
 
+    // Takes a list of cell values and returns a list of string representations of these. 
     let rec strBuilder = function
         | [] -> []
         | String (Some a) :: tail -> 
@@ -196,24 +236,31 @@ module LoadSave =
         | Bool (Some a)   :: tail -> "Bool Some " + string a   :: strBuilder tail
         | Bool None       :: tail -> "Bool None"               :: strBuilder tail
 
+    // Builds a string by combining a list of string representations of cell values, adding spaces between values
     let rec buildLine lineList = 
         match lineList with
         | [] -> ""
         | el :: tail -> el + " " + (buildLine tail)
 
+    // Builds a list of strings, each representing a single row of cells. 
     let buildOutList myData =
         myData |> List.map strBuilder |> List.map buildLine
 
+    // Takes a linked list of cells and builds a list of cell values
+    // Extracts away internal structure of how database is saved
     let rec extractBoxValues boxList =
         match !boxList with
         | INilBox -> []
         | BoxNode (colName, value, _, tail) -> value :: extractBoxValues tail
 
+    // Takes a linked list of rows and builds a list of lists of cell values
+    // Extracts away internal structure of how database is saved
     let rec extractRowValues rowList =
         match !rowList with
         | INilRow -> []
         | RowNode (thisRow, nextRow) -> extractBoxValues thisRow :: extractRowValues nextRow
 
+    // Creates a string with column names and column strings
     let rec extractBoxTypes ( columns : (string * boxData) list ) = 
         match columns with
         | [] -> ""
@@ -223,102 +270,20 @@ module LoadSave =
         | (colName, Byte   _) :: tail -> colName + " Byte   " + extractBoxTypes tail
         | (colName, Bool   _) :: tail -> colName + " Bool   " + extractBoxTypes tail
 
+    // Converts a table to a list of strings
     let tableToStrings thisTable =
         match !thisTable with 
         | INilTable -> []
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             "TABLE" :: tableName :: extractBoxTypes tableTypes :: (buildOutList (extractRowValues thisTable) )
 
+    // Converts a database to a list of strings
     let rec saveDatabaseStrings database =
         match !database with
         | INilTable -> []
         | TableNode (thisTable, tableName, tableTypes, nextTable) ->
             (tableToStrings database) @ saveDatabaseStrings nextTable
             
+    // Saves a database into a text file.
     let save path database =
        File.WriteAllLines (path, saveDatabaseStrings database |> List.toSeq) |> Result
-         
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-    // Tests
-    (*
-    //sortIntoMultipleRev ["TABLE"; "User Table"; "User String"; "X Y"; "Z W"; "TABLE"; "Table Two"; "ID Int"; "X Y"; "W Z"]
-    //|> splitIntoThreeLists
-    getTypes (cleanLine "User  String   ID Int")
-    sortIntoMultipleRev ["TABLE";"User Table";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Table Two"; "Subject String"; "String Some Math"; "String Some Music"]
-
-    buildDatabaseWrapper ["TABLE";"User Table";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Table Two"; "Subject String"; "String Some Math"; "String Some Music"]
-
-
-    let exCol = ["Names"; "String"; "ID"; "Int"]
-    let exData = [String (Some "Hedda"); Int (Some 1)]
-    let exDataMult = [[String (Some "Hedda"); Int (Some 1)];[String (Some "Nora"); Int (Some 6)]]
-    let badData = [[String (Some "Hedvig"); Float (Some 3.2)]]
-
-    matchInputLists exCol exData
-    //buildData exCol exDataMult
-    //buildData exCol badData
-
-    strProcess ["String"; "Some"; "Orlando"; "Int"; "Some"; "45"]
-    strProcess ["Byte"; "Some"; "0xF3"; "Byte"; "None"]
-    strProcess ["Bool"; "Some"; "True"; "Bool"; "None"]
-    strProcess ["Float"; "Some"; "3.1415926"; "Float"; "None"]
-    strProcess ["String"; "some"; "hei"]
-    strProcess ["Strange"; "Some"; "Dragon"]
-
-    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
-    let outPath = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\outFile.txt"
-
-    let dbRes = load myPath // Reads in data to a database as saved with final specification (19/3/17)
-    match dbRes with
-    | Error e -> Error e
-    | Result db -> 
-        save outPath db // Writes all data into a database, saved with final specification (19/3/17)
-    let dbResCopy = load outPathFull // Can be read back in.
-    
-    //let fileLines = readFile myPath
-    //let k = readIn fileLines
-    //let j = ReadInData myPath
-
-    let exCol2 = ["Names"; "String"; "ID"; "Int"; "Credit"; "Float"; "Hex"; "Byte"; "Member"; "Bool"]
-    let testSeparate = ["Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"]
-    readTable testSeparate
-    //buildData exCol2 j
-
-    let testMultiple = ["TABLE";"Names String ID Int";"String Some Orlando Int Some 45";"String Some Rebecca Int Some 42"; "TABLE"; "Subject String"; "String Some Math"; "String Some Music"]
-
-    //wrapper ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"] []
-
-    // Get table names in a list, get table tyoes in a list, get a list with strings separated for tables (sortIntoMultiple output)
-
-        
-
-
-    //sortIntoMultiple ["TABLE"; "User String"; "X Y"; "Z W"; "TABLE"; "ID Int"; "X Y"; "W Z"]
-        
-    //sortIntoMultiple testMultiple
-    //readFile structPath |> Seq.toList |> sortIntoMultiple |> List.map readTable
-        
-    //readFile someStruct |> Seq.toList |> readTable
-    //type TableList = TableNode of topList : ref<topList> * TableName : string * Tl : ref<TableList> | INilTable
-
-   // let s = strBuilder (List.head j )
-  //  let t = buildLine s
-   // let u = buildOutSeq j
-    //buildOutList j
-    //File.WriteAllLines(outPath, u)
-   // let v = ReadInData outPath
-
-*)
-
-        
-//    printfn "%A" fileLines
- //   printfn "%A" k
- //   printfn "%A" j
-
-(*
-To save database:
-    Extract list of values from a table
-    Extract column names and types from a table
-    Extract table name
-    Write "TABLE" 
-*)
