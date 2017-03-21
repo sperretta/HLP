@@ -76,7 +76,7 @@ module Tokeniser =
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
             | ch :: rest when Array.contains ch numbers -> parse (ch :: outLst) rest
-            | ch :: rest when isValidStop ch && outLst.Length <> 0 -> Some(outLst,rest)
+            | ch :: rest when isValidStop ch && outLst.Length <> 0 -> Some(outLst,ch::rest)
             | [] when outLst.Length <> 0 -> Some(outLst,[])
             | _ -> None
         ///Convert parsed number into usable numerical form
