@@ -391,6 +391,7 @@ module AST =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput TableList
             |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
+            |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
         let createParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "TABLE")
