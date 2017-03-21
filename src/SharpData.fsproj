@@ -49,8 +49,8 @@
   <ItemGroup>
     <None Include="App.config" />
     <Compile Include="ReturnControl.Main.fs" />
-    <Compile Include="Variable.fs" />
     <Compile Include="databaseStructure.fs" />
+    <Compile Include="Variable.fs" />
     <Compile Include="LoadSave.fs" />
     <Compile Include="ExecutionEngineInsert.fs" />
     <Compile Include="ExecutionEngineCreate.fs" />
@@ -61,7 +61,11 @@
     <Compile Include="Parser.ControlAndTypes.fs" />
     <Compile Include="ReturnControl.AST.fs" />
     <Compile Include="Parser.AST.fs" />
+    <Compile Include="ReturnControl.ExecutionEngine.fs" />
+    <Compile Include="ExecutionEngine.Main.fs" />
     <Compile Include="DBWrapper.fs" />
+    <Compile Include="Variable.Printer.fs" />
+    <Compile Include="ExecutionEngine.Parse.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
