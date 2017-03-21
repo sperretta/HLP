@@ -339,6 +339,13 @@ module Parse =
             | [] -> Result(varMap,returnTableList)
         let convertToOutput (varMap,returnTableList) =
             //Convert var map to strings, reverse table list
+            let rec printerParse outLst inLst =
+                match inLst with
+                | item :: rest ->
+                    LoadSave.LoadSave.tableToStrings item
+                    |> fun x -> printerParse (outLst @ x) rest
+                | [] -> outLst
             (varMap,List.rev returnTableList)
+            |> fun (x,y) -> (Printer.run x),(List.rev (printerParse [] y))
         parse tree Map.empty []
         |> UnwrapResultThrough convertToOutput
