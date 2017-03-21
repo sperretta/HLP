@@ -6,22 +6,28 @@ module AST =
 
     open ReturnControl.Main
     open ReturnControl.AST
+    open Variable
 
+    ///Parse column wrapped list.
+    ///Args: Unit (no vars in); token list to be parsed.
+    ///Returns: Node with wrapped column list stored in tree, rest of tokens.
     let ColumnWrappedList () (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
+        ///Match column functions: "function(column name)"
         let (|FunctionMatch|_|) (lst:Tokeniser.tokens) =
             let validFunctions = [| "AVG" ; "MAX" ; "MIN" ; "SUM" ; "ROUND" |]
             match lst with
             | Token.Name(funName) :: Token.Operator("(") :: Token.Name(colName) :: Token.Operator(")") :: rest when Array.contains funName validFunctions ->
                 [Item(Key(Function),Literal(Token.Name(funName))) ; Item(Key(Name),Literal(Token.Name(colName)))]
-                |> fun x -> Some(x,rest)
+                |> fun nodeList -> Some(nodeList,rest)
             | _ -> None
-        let (|AliasMatch|_|) (lst:Tokeniser.tokens) =
-            match lst with
+        ///Match column aliases: "column name AS alias name"
+        let (|AliasMatch|_|) = function //Input: Tokeniser.tokens
             | Token.Name(colName) :: Token.Name("AS") :: Token.Literal(colAlias) :: rest ->
                 [Item(Key(Name),Literal(Token.Name(colName))) ; Item(Key(Alias),Literal(Token.Literal(colAlias)))]
-                |> fun x -> Some(x,rest)
+                |> fun nodeList -> Some(nodeList,rest)
             | _ -> None
-        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextColumn:bool) : ReturnCode<node list*Tokeniser.tokens> =
+        ///Parse through list of tokens, finding wrapped column names
+        let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextColumn:bool) =
             match lst with
             | FunctionMatch (funLst,rest) when nextColumn -> parse (Branch(Key(Function),funLst) :: outLst) rest false
             | AliasMatch (aliasLst,rest) when nextColumn -> parse (Branch(Key(Alias),aliasLst) :: outLst) rest false
@@ -32,13 +38,16 @@ module AST =
         parse [] tokenList true
         |> UnwrapResultThrough (fun (columnList,rest) -> Branch(Key(Column),(List.rev columnList)),rest)
 
+    ///Parse column type list.
+    ///Args: Unit (no vars in); token list to be parsed.
+    ///Returns: Node with column and type information stored in tree, rest of tokens.
     let ColumnTypeList () (tokenList:Tokeniser.tokens) =
-        let (|ColumnTypeMatch|_|) (tLst:Tokeniser.tokens) =
-            match tLst with
-            | Token.Name(columnName) :: Token.Name(columnType) :: rest when Variable.Variable.isValidVarType columnType ->
+        ///Match column and type: "column name type"
+        let (|ColumnTypeMatch|_|) = function //Input: Tokeniser.tokens
+            | Token.Name(columnName) :: Token.Name(columnType) :: rest when Variable.isValidVarType columnType ->
                 [Item(Key(Name),Literal(Token.Name(columnName))) ; Item(Key(Type),Literal(Token.Name(columnType)))]
                 |> fun nodeList -> Branch(Key(Column),nodeList),rest
-                |> fun result -> Some(Result(result))
+                |> fun res -> Some(Result(res))
             | Token.Name(_) :: Token.Name(columnType) :: _ ->
                 Some(Error(sprintf "Expected valid column type, got %s" columnType))
             | Token.Name(_) :: item :: _ ->
@@ -47,6 +56,7 @@ module AST =
                 Some(Error("Expected valid column type, ran out of tokens"))
             | _ ->
                 None
+        ///Parse list of tokens, finding sets of column names and types.
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
             match lst with
             | ColumnTypeMatch matchedOutput when nextItem ->
@@ -69,30 +79,30 @@ module AST =
         | [] ->
             Error("Expected \"(\", ran out of tokens")
 
-    let ValueItemWithTypecheck (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) =
-        let output (tLst:Tokeniser.tokens) (nod:node) (valType:Variable.Variable.varType) =
+    let ValueItemWithTypecheck (vars:Variable.typeContainer) (input:Tokeniser.tokens) =
+        let output (tLst:Tokeniser.tokens) (nod:node) (valType:Variable.varType) =
             Result(nod,tLst,valType)
         match input with
         | Token.Value(value) :: rest ->
             match value with
-            | Token.Integer(_) -> Variable.Variable.Integer
-            | Token.Byte(_) -> Variable.Variable.Byte
-            | Token.Floating(_) -> Variable.Variable.Float
-            | Token.Boolean(_) -> Variable.Variable.Boolean
+            | Token.Integer(_) -> Variable.Integer
+            | Token.Byte(_) -> Variable.Byte
+            | Token.Floating(_) -> Variable.Float
+            | Token.Boolean(_) -> Variable.Boolean
             |> output rest (Item(Key(Number),Literal(Token.Value(value))))
         | Token.Literal(str) :: rest ->
-            output rest (Item(Key(String),Literal(Token.Literal(str)))) Variable.Variable.String
+            output rest (Item(Key(String),Literal(Token.Literal(str)))) Variable.String
         | Token.Name(varName) :: rest when vars.ContainsKey varName ->
             output rest (Item(Key(Variable),Literal(Token.Name(varName)))) vars.[varName]
         | Token.Name(varName) :: rest -> Error(sprintf "Could not find declaration for variable %s" varName)
         | tok :: _ -> Error(sprintf "Invalid value %A" tok)
         | [] -> Error("Run out of tokens when expected value")
 
-    let ValueItem (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) =
+    let ValueItem (vars:Variable.typeContainer) (input:Tokeniser.tokens) =
         ValueItemWithTypecheck vars input
         |> UnwrapResultThrough (fun (nodeList,tokenList,_) -> (nodeList,tokenList))
 
-    let SetColumnList (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+    let SetColumnList (vars:Variable.typeContainer) (tokenList:Tokeniser.tokens) =
         let rec parse (outLst:node list) (tLst:Tokeniser.tokens) (nextItem:bool) =
             let makeNode colName (value,newTokenList) =
                 Branch(Key(Column),[Item(Key(Name),Literal(Token.Name(colName))) ; value])
@@ -127,7 +137,7 @@ module AST =
         | [] ->
             Error("Expected keyword SET, ran out of tokens")
 
-    let ConditionsList (vars:Variable.Variable.typeContainer) (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
+    let ConditionsList (vars:Variable.typeContainer) (input:Tokeniser.tokens) : (ReturnCode<node*Tokeniser.tokens> option) =
         let (|ConditionMatch|) (tokenList:Tokeniser.tokens) =
             let isCompareOp str =
                 let compareOperators = [| "=" ; "<>" ; "<" ; ">" ; "<=" ; ">=" |]
@@ -221,7 +231,7 @@ module AST =
             |> fun x -> Some(x)
         | _ -> None
 
-    let ValueList (vars:Variable.Variable.typeContainer,numColumns:int option) (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
+    let ValueList (vars:Variable.typeContainer,numColumns:int option) (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
         let (|ValueMatch|) = ValueItem
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) (numValues:int) =
             match lst with
@@ -297,8 +307,8 @@ module AST =
         | Token.Name("LIMIT") :: rest -> Some(Error("Expected limit value (integer)"))
         | _ -> None
 
-    let (|BranchMatch|_|) (vars:Variable.Variable.typeContainer) (tokenList:Tokeniser.tokens) =
-        let output (key:keyword) (result:ReturnCode<node list*Tokeniser.tokens*Variable.Variable.typeContainer>) =
+    let (|BranchMatch|_|) (vars:Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+        let output (key:keyword) (result:ReturnCode<node list*Tokeniser.tokens*Variable.typeContainer>) =
             result
             |> UnwrapResultThrough (fun (nodeList,tokenList,vars) -> (Key(key),nodeList,tokenList,vars))
         let selectParse (tokenList:Tokeniser.tokens) =
@@ -324,8 +334,8 @@ module AST =
         let setParse (tokenList:Tokeniser.tokens) =
             let (|ValueMatch|) = ValueItemWithTypecheck
             let mathsOperators = [| "+" ; "-" ; "*" ; "/" |]
-            let validMathsTypes = [| Variable.Variable.Integer ; Variable.Variable.Float |]
-            let rec parse (outLst:node list) (tLst:Tokeniser.tokens) (nextItem:bool) (expressionType:Variable.Variable.varType) =
+            let validMathsTypes = [| Variable.Integer ; Variable.Float |]
+            let rec parse (outLst:node list) (tLst:Tokeniser.tokens) (nextItem:bool) (expressionType:Variable.varType) =
                 let processValueMatch (newNode,newTokenList,valType) =
                     if valType = expressionType then
                         parse (Item(Key(Value),newNode) :: outLst) newTokenList false expressionType
@@ -369,14 +379,14 @@ module AST =
             let isValidVarName (name:string) =
                 not (vars.ContainsKey(name))
             let updatedVarMap (name:string) (varType:string) =
-                Map.add name Variable.Variable.validTypes.[varType] vars
+                Map.add name Variable.validTypes.[varType] vars
             match tokenList with
-            | Token.Name(varName) :: Token.Name(varType) :: rest when isValidVarName varName && Variable.Variable.isValidVarType varType ->
+            | Token.Name(varName) :: Token.Name(varType) :: rest when isValidVarName varName && Variable.isValidVarType varType ->
                 [Item(Key(Variable),Literal(Token.Name(varName))) ; Item(Key(Type),Literal(Token.Name(varType)))]
                 |> fun nodeList -> Result(nodeList,rest,updatedVarMap varName varType)
             | Token.Name(varName) :: Token.Name(varType) :: _ when isValidVarName varName ->
                 Error(sprintf "Cannot understand type %s" varType)
-            | Token.Name(varName) :: Token.Name(varType) :: _ when Variable.Variable.isValidVarType varType ->
+            | Token.Name(varName) :: Token.Name(varType) :: _ when Variable.isValidVarType varType ->
                 Error(sprintf "Variable name \"%s\" already has been declared" varName)
             | Token.Name(varName) :: item :: _ ->
                 Error(sprintf "Expected variable type, got %A" item)
@@ -407,7 +417,7 @@ module AST =
         | _ -> None;
 
     let getTree (tokenList:Tokeniser.tokens) =
-        let rec parse (outLst:node list) (tokens:Tokeniser.tokens) (vars:Variable.Variable.typeContainer) (nextStatement:bool) : ReturnCode<node list> =
+        let rec parse (outLst:node list) (tokens:Tokeniser.tokens) (vars:Variable.typeContainer) (nextStatement:bool) : ReturnCode<node list> =
             match tokens with
             | [] when nextStatement -> Result(outLst)
             | BranchMatch vars matchedStatement when nextStatement ->
