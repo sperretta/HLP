@@ -6,7 +6,7 @@ module Select =
     open databaseStructure.databaseStructure
     open ReturnControl.Main
 
-
+    // Recursive function called by newRow
     let rec newRowRec columnList rowMap prevNode thisNode =
         match columnList with
         | [] -> Result ()
@@ -18,11 +18,14 @@ module Select =
                 thisNode := BoxNode (col, value, prevNode, nextNode)
                 newRowRec colTail rowMap thisNode nextNode
 
+    // Takes a list of wanted columns (identified by column names) and a map from column names to cell values
+    // for a specific row, and builds a linked list of cell values with the wanted columns and the values from the row map
     let newRow columnList rowMap =
         let firstHead = ref INilBox
         let firstNode = ref INilBox
         UnwrapResultInto (fun _ -> Result firstNode) (newRowRec columnList rowMap firstHead firstNode)
 
+    // Recursive function called by testTable
     let rec testTableRec columnList thisTable testFunction limit offset nextRow =
         match limit, offset with
         | i, j when i=0 -> Result()
@@ -48,6 +51,8 @@ module Select =
                         nextRow := RowNode (tRow, futureRow)
                         testTableRec columnList otherRows testFunction (limit - 1) offset futureRow
 
+    // Function that takes a table and returns a copy with the selected columns for the rows selected by
+    // the testFunction, obeying the restrictions set by limit and offset
     let testTable columnList thisTable testFunction limit offset =
         let nextRow = ref INilRow
         let run = testTableRec columnList thisTable testFunction limit offset nextRow
@@ -55,13 +60,16 @@ module Select =
         | Error e -> Error e
         | Result _ -> Result nextRow 
         
-    let rec tranCols specifiedCols foundCols =
+    // Takes a list of column names and a list of (column names, column types) tuples, and returns
+    // a list of (column names, column types) tuples for the column names specified in the first column name list.
+    let rec tranCols (specifiedCols : string list) (foundCols : (string*boxData) list)=
          match specifiedCols, foundCols with
          | [], _ -> Result []
          | _, [] -> Error "SELECT: One of the specified columns was not found."
          | specHead :: specTail, (foundString, foundBox) :: foundTail when specHead = foundString -> UnwrapResultThrough (fun tail -> (foundString, foundBox) :: tail) (tranCols specTail foundTail)
          | _, (foundString, foundBox) :: foundTail -> tranCols specifiedCols foundTail
         
+    // Recursive funtion called by select to go through a databse and copy the tables and rows wanted
     let rec selectRec columnList tableList testFunction limit offset tableMap transformedTable =
         match tableList with
         | [] -> Result ()
@@ -81,12 +89,15 @@ module Select =
                         transformedTable := TableNode (tranTable, t1, tranCol, nextTable)
                         selectRec columnList tTail testFunction limit offset tableMap nextTable
 
+    // Takes an option, and returns either the value, or the provided alternative
     let evaluateOption noneOption = function
         | None -> noneOption
         | Some value -> value
 
+    // A testfunction that always returns true
     let acceptAll map = Result true
 
+    // Function called by execution engine parser to implement selecting parts of a database. Returns said subsection of the database
     let select (columnList : string list) (tableList : string list) (testFunctionOpt : (Map<string,boxData> -> ReturnCode<bool>) option) (limitOpt : int option) (offsetOpt : int option) (db : database) : ReturnCode<database> =
         let tableMap = transformDatabaseMap db
         let transformedTable = ref INilTable
@@ -96,16 +107,3 @@ module Select =
         match selectRec columnList tableList testFunction limit offset tableMap transformedTable with
         | Error e -> Error e
         | Result _ -> Result transformedTable
-
-  (*  open LoadSave.LoadSave
-    let path = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
-    let myDRes = load path
-
-    let testFunc map =
-        match Map.find "ID" map with
-        | Int (Some i) when i < 20  -> Result false
-        | _                         -> Result true
-
-    match myDRes with
-    | Result myD ->
-        select ["Names"; "ID"] ["Literary Characters"] (Some testFunc) None None myD*)
