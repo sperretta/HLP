@@ -129,8 +129,8 @@ module Tokeniser =
         let output (litLst:char list) (rest:char list) =
             List.rev litLst
             |> charListToString
-            |> fun x ->
-                 if x.Length < 256 then Result(x,rest) else Error(sprintf "Literal is too long:\n%s" x)
+            |> fun str ->
+                 if str.Length < 256 then Result(str,rest) else Error(sprintf "Literal is too long (max 255 characters):\n%s" str)
         let getLiteralString (lst:char list) =
             ['"'] @ lst @ ['"']
             |> charListToString
@@ -143,13 +143,13 @@ module Tokeniser =
                 | [] -> output outLst []
                 | _ -> 
                     getLiteralString outLst
-                    |> sprintf "Invalid literal %s (need termination between final \" and next character)"
-                    |> fun x -> Error(x)
+                    |> sprintf "Invalid literal \"%s\" (need termination between final \" and next characters)"
+                    |> fun str -> Error(str)
             | ch :: rest -> parse (ch :: outLst) rest
             | [] ->
                 getLiteralString outLst
-                |> sprintf "Literal %s not finished (no characters left)"
-                |> fun x -> Error(x)
+                |> sprintf "Literal %s not finished (expecting \", but no characters left)"
+                |> fun str -> Error(str)
         match chLst with
         | '"' :: rest -> Some(parse [] rest)
         | _ -> None
@@ -163,8 +163,8 @@ module Tokeniser =
             |> List.rev
             |> charListToString
             |> int
-            |> fun x -> if x < 256 && x > 0 then Result(byte x,rest) else Error(sprintf "Byte %u is outside range" x)
-            |> fun x -> Some(x)
+            |> fun byteVal -> if byteVal < 256 && byteVal >= 0 then Result(byte byteVal,rest) else Error(sprintf "Byte %i is outside range (0 to 255)" byteVal)
+            |> fun res -> Some(res)
         ///Parse through character list extracting set of consecutive numbers, ending in B
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
@@ -177,7 +177,7 @@ module Tokeniser =
                     outLst
                     |> charListToString
                     |> sprintf "Invalid byte %s (need termination between B and next character)"
-                    |> fun x -> Some(Error(x))
+                    |> fun str -> Some(Error(str))
             | _ -> None
         match chLst with
         | ch :: rest when Array.contains ch numbers -> parse [] rest
@@ -237,7 +237,11 @@ module Tokeniser =
             | BoolMatch (boolean,tail) -> parse (Token.Value(Token.value.Boolean(boolean)) :: outLst) tail
             | NameMatch (name,tail) -> parse (Token.Name(name) :: outLst) tail
             | [] -> Result(outLst)
-            | error -> Error(sprintf "Unrecognised sequence: %A" error)
+            | _ ->
+                inStr
+                |> charListToString
+                |> sprintf "Unrecognised sequence: %s"
+                |> fun str -> Error(str)
         List.ofSeq chLst
         |> parse []
         |> UnwrapResultThrough (fun tokenList -> List.rev tokenList)

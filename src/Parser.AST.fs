@@ -38,7 +38,7 @@ module AST =
             | AliasMatch (aliasLst,rest) when nextColumn -> parse (Branch(Key(Alias),aliasLst) :: outLst) rest false
             | Token.Name(name) :: rest when nextColumn -> parse (Item(Key(Name),Literal(Token.Name(name))) :: outLst) rest false
             | Token.Operator(",") :: rest when not nextColumn -> parse outLst rest true
-            | item :: rest when nextColumn -> Error(sprintf "Expected wrapped column name, got %A" item)
+            | item :: _ when nextColumn -> Error(sprintf "Expected wrapped column name, got %A" item)
             | rest -> Result(outLst,rest)
         parse [] tokenList true
         |> UnwrapResultThrough (fun (columnList,rest) -> Branch(Key(Column),(List.rev columnList)),rest)
