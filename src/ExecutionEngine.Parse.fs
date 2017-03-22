@@ -18,7 +18,9 @@ module Parse =
     //            match rest with
     //            | 
 
+    ///Read table name list.
     let interpretTableNameList branches =
+        ///Parse through tree, extracting table names
         let rec parse outLst inLst =
             match inLst with
             | Literal(Token.Name(tableName)) :: rest ->
@@ -26,9 +28,11 @@ module Parse =
             | item :: _ -> Error(sprintf "Expected table name, got %A" item)
             | [] -> Result(outLst)
         parse [] branches
-        |> UnwrapResultThrough (fun x -> List.rev x)
+        |> UnwrapResultThrough (fun tableList -> List.rev tableList)
 
+    ///Read column name list.
     let interpretColumnNameList nodeList =
+        ///Parse through tree, extracting column names
         let rec parse outLst inLst =
             match inLst with
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: rest ->
@@ -38,6 +42,7 @@ module Parse =
         parse [] nodeList
         |> UnwrapResultThrough (fun colList -> List.rev colList)
 
+    ///Read single value.
     let interpretValueItem value (variables:Variable.contentsContainer) =
         match value with
         | Item(Key(Number),Literal(Token.Value(numberItem))) ->
@@ -52,6 +57,7 @@ module Parse =
             Result(variables.[varName])
         | _ -> Error(sprintf "Expected value item, got %A" value)
 
+    ///Convert column data type into variable type (for comparisons).
     let getSimplifiedType = function
         | databaseStructure.Int _ -> Variable.Integer
         | databaseStructure.Float _ -> Variable.Float
@@ -59,6 +65,7 @@ module Parse =
         | databaseStructure.Byte _ -> Variable.Byte
         | databaseStructure.String _ -> Variable.String
 
+    ///Read conditions list, convert to usable boolean function.
     let interpretConditionsList branches variables =
         let operators =
             [
@@ -70,14 +77,19 @@ module Parse =
             ">=" , (>=)
             ]
             |> Map.ofList
+        ///Function builder
         let newConditionFunc colName op (value:node) =
+            ///Get value
             let interpretedValue =
                 interpretValueItem value variables
+            ///Find type of value
             let valueType =
                 interpretedValue
                 |> UnwrapResultThrough getSimplifiedType
+            ///Boolean function that takes in row data
             fun (colData:Variable.rowContainer) ->
                 if colData.ContainsKey colName then
+                    ///Find comparable type of column data needed
                     let simplifiedColType =
                         colData.[colName]
                         |> getSimplifiedType
@@ -89,12 +101,15 @@ module Parse =
                         | _ -> Error(sprintf "Type of column and value do not match for %s" colName)
                     else Error(sprintf "Operator %s not recognised" op)
                 else Error(sprintf "Column name %s not recognised" colName)
+        ///Read single condition and get converted form.
         let interpretCondition cond =
             match cond with
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: [] ->
                 Result(newConditionFunc colName op value)
             | _ -> Error(sprintf "Expected condition, got %A" cond)
+        ///Parse through tree and build up boolean function
         let rec parse (outFunc:Variable.rowContainer -> ReturnCode<bool>) inLst =
+            ///Combine newly interpreted condition function with rest of function.
             let specialFunction combiner rest unwrappedFunc =
                 fun x ->
                     match unwrappedFunc x with
@@ -120,7 +135,9 @@ module Parse =
         | item :: _ -> Error(sprintf "Expected condition, got %A" item)
         | [] -> Error("Expected condition, ran out of tree")
 
+    ///Read select statement and get table output.
     let interpretSelect branches variables =
+        ///Interpret the mandatory parts of the statement.
         let unwrapChildren =
             match branches with
             | Branch(Key(Column),wrappedColumnList) :: Branch(Key(From),tableNameList) :: optionalLeaves ->
@@ -131,11 +148,14 @@ module Parse =
                 Error (sprintf "Expected column branch, got %A" item)
             | [] ->
                 Error("Expected column branch, ran out of tree")
+        ///Match ordering argument in statement (optional).
         let (|MatchOrder|_|) opt =
             match opt with
             | Branch(Key(Order),_) :: rest -> Some(Error("Order is currently not supported"))
             | _ -> None
+        ///Match limit argument in statement (optional).
         let (|MatchLimit|_|) opt =
+            ///Check for offset part of limit argument (optional).
             let matchOffset opt2 =
                 match opt2 with
                 | Item(Key(Offset),Literal(Token.Value(Token.Integer(offsetVal)))) :: [] -> Some(offsetVal)
@@ -148,6 +168,7 @@ module Parse =
                     |> fun x -> Some(Result(limitVal,x))
                 | _ -> Some(Error("Broken tree in matchlimit"))
             | _ -> None
+        ///Read optional arguments in statement.
         let dealWithOptionals opt =
             match opt with
             | Branch(Key(Where),condList) :: rest ->
@@ -161,6 +182,7 @@ module Parse =
             | MatchLimit res -> UnwrapResultThrough (fun (x,y) -> None,Some(x),y) res
             | [] -> Result(None,None,None)
             | _ -> Error(sprintf "Unrecognised option in select %A" opt)
+        ///Interpret parts of statement and compile into form accepted by the database.
         let sendToBackend (colList,tabList,optional) =
             dealWithOptionals optional
             |> UnwrapResultThrough (fun (condFunc,limitVal,offsetVal) -> Select.select colList tabList condFunc limitVal offsetVal)
@@ -168,7 +190,9 @@ module Parse =
         unwrapChildren
         |> UnwrapResultInto sendToBackend
                 
-    let interpretInsert branches (variables:Variable.Variable.contentsContainer) =
+    ///Read insert statement.
+    let interpretInsert branches (variables:Variable.contentsContainer) =
+        ///Read list of values to be inserted into the table.
         let interpretValueList nodeList =
             let rec parse outLst inLst =
                 match inLst with
@@ -179,12 +203,14 @@ module Parse =
                 | item :: _ -> Error(sprintf "Expected value item, got %A" item)
             parse [] nodeList
             |> UnwrapResultThrough (fun lst -> List.rev lst)
+        ///Find list of values.
         let (|MatchValueList|) nodeLst =
             match nodeLst with
             | Branch(Key(Value),valueList) :: [] ->
                 interpretValueList valueList
             | [] -> Error("Expected value list, ran out of tree")
             | other -> Error(sprintf "Expected value list, got %A" other)
+        ///Find list of columns and values.
         let (|MatchColumnAndValueList|_|) nodeLst =
             match nodeLst with
             | Branch(Key(Column),columnNameList) :: rest ->
@@ -193,6 +219,7 @@ module Parse =
                     UnwrapTwoResultsThrough (fun x y -> x,y) (interpretColumnNameList columnNameList) valueList
                     |> fun x -> Some(x)
             | _ -> None
+        ///Find arguments to insert statement
         let matchRest nodeLst =
             match nodeLst with
             | MatchColumnAndValueList matchedResult -> matchedResult
@@ -208,12 +235,15 @@ module Parse =
         | item :: _ -> Error(sprintf "Expected table name, got %A" item)
         | [] -> Error("Expected table name, but damaged tree, missing next branch")
 
+    //Currently unused.
     //let interpretUpdate branches variables =
     //    open Update
 
+    ///Read set part of tree and set variable value.
     let interpretSet branches (variables:Variable.contentsContainer) =
-        //open Set
+        ///Read expression on right hand side, evaluate result.
         let interpretExpression exp (varType:Variable.varType) =
+            ///Convert string form operator into column data real operator using map.
             let validOperators =
                 [
                 "+" , (+) ;
@@ -222,6 +252,7 @@ module Parse =
                 "/" , (/)
                 ]
                 |> Map.ofList
+            ///Read a single value from the expression.
             let interpretSetValue value =
                 match value with
                 | Branch(Key(Select),children) ->
@@ -229,6 +260,7 @@ module Parse =
                     |> UnwrapResultInto databaseStructure.tableGetUnitValue
                 | item ->
                     interpretValueItem item variables
+            ///Parse through tree, extracting parts of expression and combining them.
             let rec parse outValue inLst =
                 match inLst with
                 | Item(Key(Operator),Literal(Token.Operator(op))) :: Item(Key(Value),value) :: rest ->
@@ -251,6 +283,7 @@ module Parse =
                 interpretSetValue value
                 |> UnwrapResultInto (fun x -> parse x rest)
             | _ -> Error(sprintf "Expected value, got %A" exp)
+        ///Change value of single variable in the variable container.
         let updateVariables varName newVarVal =
             Map.remove varName variables
             |> Map.add varName newVarVal
@@ -262,6 +295,7 @@ module Parse =
             else Error(sprintf "No variable declared %s" varName)
         | _ -> Error(sprintf "Expected \"varName valueString\", got %A" branches)
 
+    ///Read declare statement and add new variable to the map.
     let interpretDeclare branches (variables:Variable.Variable.contentsContainer) =
         match branches with
         | Item(Key(Variable),Literal(Token.Name(varName))) :: Item(Key(Type),Literal(Token.Name(varType))) :: [] ->
@@ -273,6 +307,7 @@ module Parse =
                 else Error(sprintf "Unrecognised variable type \"%s\"" varType)
         | _ -> Error (sprintf "Unrecognised sequence after DECLARE %A" branches)
 
+    ///Read delete statement and extract arguments to be sent to database controller.
     let interpretDelete branches variables =
         match branches with
         | Branch(Key(From),tableList) :: rest ->
@@ -287,13 +322,16 @@ module Parse =
         | item :: _ -> Error(sprintf "Expected table list, got %A" item)
         | [] -> Error("Expected table list, ran out of tree")
 
+    ///Read create statement and extract arguments.
     let interpretCreate branches =
+        ///Read column and type information for columns.
         let interpretColumnTypeItem children =
             match children with
             | Item(Key(keyword.Name),Literal(Token.Name(colName))) :: Item(Key(Type),Literal(Token.Name(colType))) ::  [] ->
                 if Map.containsKey colType Variable.validDatabaseTypes then Result(colName,Variable.validDatabaseTypes.[colType])
                 else Error(sprintf "Unrecognised column type %s" colType)
             | _ -> Error(sprintf "Unrecognised column-type pattern %A" children)
+        ///Extract sets of columns and types from list.
         let interpretColumnTypeList children =
             let rec parse outLst (inLst:node list) =
                 match inLst with
@@ -310,6 +348,8 @@ module Parse =
             |> UnwrapResultInto (fun func -> DBWrapper.DBWrapper.execute func)
         | _ -> Error (sprintf "Unrecognised sequence after CREATE %A" branches)
 
+    ///Top level function.
+    ///Search tree for statement branches and send them to be analysed.
     let runThroughTree (tree:node list) =
         let rec parse (branches:node list) (varMap:Variable.contentsContainer) (returnTableList:databaseStructure.database list) = //Returntabletype list =
             match branches with
@@ -337,8 +377,9 @@ module Parse =
                 |> UnwrapResultInto (fun () -> parse rest varMap returnTableList)
             | item :: _ -> Error(sprintf "Unrecognised node %A in top level parse" item)
             | [] -> Result(varMap,returnTableList)
+        ///Convert variable output and tables to strings.
         let convertToOutput (varMap,returnTableList) =
-            //Convert var map to strings, reverse table list
+            //Convert tables to strings, reverse table list.
             let rec printerParse outLst inLst =
                 match inLst with
                 | item :: rest ->

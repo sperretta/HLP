@@ -289,11 +289,13 @@ module AST =
             | [] when nextItem -> Error("Expected value, ran out of tokens")
             | [] when not nextItem -> Error("Expected , or ), ran out of tokens")
             | rest -> Error("Unknown error on sequence")
+        ///Compare number of column names and number of values
         let compareValues num =
             match numColumns with
             | Some(numCol) when numCol = num -> true
             | None -> true
             | _ -> false
+        ///Process parsing output to get output for this function
         let output (nodeList,tokenList,numValues) =
            if compareValues numValues then
                Result(Branch(Key(Value),List.rev nodeList),tokenList)
@@ -310,7 +312,11 @@ module AST =
         | [] ->
             Error("Expected keyword \"VALUES\", ran out of tokens")
 
+    ///Parse a list of table names.
+    ///Args: Unit (no variables used); token list to be parsed.
+    ///Returns: Node with list of table names stored in tree, rest of tokens.
     let TableList () (tokenList:Tokeniser.tokens) : ReturnCode<node*Tokeniser.tokens> =
+        ///Parse through list of tokens, find table names
         let rec parse (outLst:node list) (lst:Tokeniser.tokens) (nextItem:bool) =
              match lst with
              | Token.Name(name) :: rest when nextItem -> parse (Literal(Token.Name(name)) :: outLst) rest false
@@ -324,16 +330,22 @@ module AST =
         | item :: rest -> Error(sprintf "Expected FROM, got %A" item)
         | [] -> Error("Expected FROM, ran out of tokens")
 
+    ///Parse a limit number and optional offset.
+    ///Args: Unit (no variables used); token list to be parsed.
+    ///Returns: Node with limit number and offset stored in tree, rest of tokens. (Optional)
     let LimitItem () (input:Tokeniser.tokens) =
-        let (|OffsetMatch|_|) (tokenList:Tokeniser.tokens) =
-            match tokenList with
+        ///Match for offset term (optional).
+        let (|OffsetMatch|_|) = function //Input: Tokeniser.tokens
             | Token.Name("OFFSET") :: Token.Value(Token.Integer(offsetVal)) :: rest -> Some(Result(offsetVal,rest))
             | Token.Name("OFFSET") :: rest -> Some(Error("Expected offset value (integer)"))
             | _ -> None
-        let successOutput (tokenList:Tokeniser.tokens) (nodeList:node list) =
-            (Branch(Key(Limit),nodeList),tokenList)
-        let checkForOffset (tokenList:Tokeniser.tokens) (limitVal:int) =
+        ///Compile output into tree form if successful
+        let successOutput tokenList nodeList = Branch(Key(Limit),nodeList),tokenList
+        ///Check for optional offset
+        let checkForOffset tokenList (limitVal:int) =
+            ///Create item containing limit.
             let limitItem = Item(Key(Value),Literal(Token.Value(Token.Integer(limitVal))))
+            ///Compile output into tree form if an offset is specified
             let outputWithOffset (offsetVal:int,remainList:Tokeniser.tokens) =
                 [limitItem ; Item(Key(Offset),Literal(Token.Value(Token.Integer(offsetVal))))]
                 |> successOutput remainList
@@ -351,10 +363,15 @@ module AST =
         | Token.Name("LIMIT") :: rest -> Some(Error("Expected limit value (integer)"))
         | _ -> None
 
+    ///Parse a singular statement.
+    ///Args: Variables (used for name and type checking); token list to be parsed.
+    ///Returns: Node containining statement stored in tree, rest of tokens.
     let (|BranchMatch|_|) (vars:Variable.typeContainer) (tokenList:Tokeniser.tokens) =
+        ///Format output of branch representing statement.
         let output (key:keyword) (result:ReturnCode<node list*Tokeniser.tokens*Variable.typeContainer>) =
             result
             |> UnwrapResultThrough (fun (nodeList,tokenList,vars) -> (Key(key),nodeList,tokenList,vars))
+        ///SELECT ColumnNameWrappedList FROM TableNameList [WHERE ConditionsList] [ORDER BY OrderList] [LIMIT LimitVal [OFFSET OffsetVal]]
         let selectParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput ColumnWrappedList
@@ -363,23 +380,29 @@ module AST =
             |> OptionalReturnWrapper NoVarsInput NoVarsOutput OrderList
             |> OptionalReturnWrapper NoVarsInput NoVarsOutput LimitItem
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
+        ///INSERT INTO TableName [(ColumnNameList)] VALUES (ValueList)
         let insertParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "INTO")
             |> OptionalReturnWrapper NoVarsInput NumberOutput ColumnNameList
             |> ReturnWrapper VarsAndNumberInput NoVarsOutput ValueList
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
+        ///UPDATE TableName SET SetColumnList [WHERE ConditionsList]
         let updateParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput TableName
             |> ReturnWrapper VarsInput NoVarsOutput SetColumnList
             |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
             |> UnwrapResultThrough (fun (nodeList,tokenList,varMap) -> List.rev nodeList,tokenList,varMap)
+        ///SET VariableName = Operation
         let setParse (tokenList:Tokeniser.tokens) =
+            ///Match value, returning type for checking
             let (|ValueMatch|) = ValueItemWithTypecheck
             let mathsOperators = [| "+" ; "-" ; "*" ; "/" |]
             let validMathsTypes = [| Variable.Integer ; Variable.Float |]
+            ///Parse through list of tokens, find set expression
             let rec parse (outLst:node list) (tLst:Tokeniser.tokens) (nextItem:bool) (expressionType:Variable.varType) =
+                ///Check types match and process
                 let processValueMatch (newNode,newTokenList,valType) =
                     if valType = expressionType then
                         parse (Item(Key(Value),newNode) :: outLst) newTokenList false expressionType
@@ -419,9 +442,12 @@ module AST =
                 Error(sprintf "Expected variable name, got %A" item)
             | [] ->
                 Error("Expected variable name, ran out of tokens")
+        ///DECLARE VariableName VariableType
         let declareParse (tokenList:Tokeniser.tokens) =
+            ///Check if variable hasn't already been declared
             let isValidVarName (name:string) =
                 not (vars.ContainsKey(name))
+            ///Update variable list with new definition
             let updatedVarMap (name:string) (varType:string) =
                 Map.add name Variable.validTypes.[varType] vars
             match tokenList with
@@ -438,10 +464,12 @@ module AST =
                 Error(sprintf "Expected variable name, got %A" item)
             | [] ->
                 Error("Expected variable name, ran out of tokens")
+        ///DELETE FROM TableName [WHERE ConditionsList]
         let deleteParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput TableList
             |> OptionalReturnWrapper VarsInput NoVarsOutput ConditionsList
+        ///CREATE TABLE TableName (ColumnTypeList)
         let createParse (tokenList:Tokeniser.tokens) =
             Result([],tokenList,vars)
             |> ReturnWrapper NoVarsInput NoVarsOutput (WrappedTableName "TABLE")
@@ -460,7 +488,10 @@ module AST =
             | _ -> None;
         | _ -> None;
 
+    ///Top level function.
+    ///Convert list of tokens into tree form.
     let getTree (tokenList:Tokeniser.tokens) =
+        ///Parse through list of tokens, finding statements (separated by ";").
         let rec parse (outLst:node list) (tokens:Tokeniser.tokens) (vars:Variable.typeContainer) (nextStatement:bool) : ReturnCode<node list> =
             match tokens with
             | [] when nextStatement -> Result(outLst)

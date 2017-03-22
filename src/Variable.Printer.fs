@@ -3,6 +3,7 @@ module Printer =
 
     open databaseStructure
 
+    ///Print variable values
     let rec unwrapVarsTuple outLst inLst =
         match inLst with
         | (varName,varValue) :: rest ->
@@ -17,6 +18,7 @@ module Printer =
             |> fun str -> unwrapVarsTuple (str :: outLst) rest
         | [] -> outLst
 
+    ///Print out all variables
     let run (vars:Variable.contentsContainer) =
         Map.toList vars
         |> unwrapVarsTuple []
