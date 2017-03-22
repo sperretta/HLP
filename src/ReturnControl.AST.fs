@@ -1,10 +1,16 @@
 ﻿namespace ReturnControl
 open Main
 module AST =
+    //Parsing control functions for AST
+
+    ///Get token list from parsing output control function
     let getTokenList (tokenList,_,_) = tokenList
+    ///Get input arguments from parsing output control function
     let getInputArgs (_,inputArgs,_) = inputArgs
+    ///Get constant outputs from parsing output control function
     let getOutputConsts (_,_,outputConsts) = outputConsts
 
+    ///Wrapper for controlling parsing for mandatory syntactic units.
     let ReturnWrapper getInputInfoFrom getOutputFuncFrom func data =
         let runFunc unwrappedData =
             let completedInputInfo = getInputInfoFrom unwrappedData
@@ -17,6 +23,7 @@ module AST =
         data
         |> UnwrapResultInto runFunc
 
+    ///Wrapper for controlling parsing for optional syntactic units.
     let OptionalReturnWrapper getInputInfoFrom getOutputFuncFrom (|MatchFunc|_|) data =
         let processReturn unwrappedData =
             let completedInputInfo = getInputInfoFrom unwrappedData

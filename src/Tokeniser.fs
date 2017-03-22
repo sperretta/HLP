@@ -27,30 +27,30 @@ module Tokeniser =
         if ch = ';' then true else false
 
     //Useful constants
-    let maths_operators = [| '+' ; '-' ; '*' ; '/' |]
+    let mathsOperators = [| '+' ; '-' ; '*' ; '/' |]
     let operators   = [| '=' ;  '>' ; '<' ; ',' ; '(' ; ')' |]
     let operators2 = [| "<>" ; ">=" ; "<=" |]
     let numbers = [| '0' .. '9' |]
-    let alpha = Array.concat [ [| 'a' .. 'z' |] ; [| 'A' .. 'Z' |] ]
-    let alphanum = Array.concat [ alpha ; numbers ]
+    let alphas = Array.concat [ [| 'a' .. 'z' |] ; [| 'A' .. 'Z' |] ]
+    let alphaNum = Array.concat [ alphas ; numbers ]
 
     ///Check if a character terminates a name or number match
     let isValidStop (ch:char) =
-        let validStopChars = Array.concat [ maths_operators ; operators ]
+        let validStopChars = Array.concat [ mathsOperators ; operators ]
         Array.contains ch validStopChars || isWhitespace ch || isEndStatement ch
 
     ///Pattern match for operators
     ///Returns string of operator and remaining characters if successful
-    let (|OpMatch|_|) (str:char list) =
+    let (|OpMatch|_|) (chLst:char list) =
         ////Process output of match
         let output (op:string) (rest:char list) =
             match rest with
             | [] -> Some(op,[])
-            | ch :: tail when Array.contains ch alphanum || isWhitespace ch -> Some(op,ch::tail)
+            | ch :: tail when Array.contains ch alphaNum || isWhitespace ch -> Some(op,ch::tail)
             | _ -> None
         ///Check if a character is a single length operator
         let isOp1 (ch:char) =
-            Array.concat [maths_operators ; operators]
+            Array.concat [mathsOperators ; operators]
             |> Array.contains ch
         ///Pattern match for two character length operators
         ///Return string form of operator (and remaining characters) if match occurs
@@ -64,14 +64,14 @@ module Tokeniser =
                 else
                     None
             | _ -> None
-        match str with
+        match chLst with
         | ch1 :: rest when isOp1 ch1 -> output (charToString ch1) rest
         | Match2Ops (opStr,rest) -> output opStr rest
         | _ -> None
 
     ///Pattern match for integers
     ///Returns integer and remaining characters if successful
-    let (|NumMatch|_|) (str:char list) =
+    let (|NumMatch|_|) (chLst:char list) =
         ///Parse through character list extracting set of consecutive numbers
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
@@ -80,7 +80,7 @@ module Tokeniser =
             | [] when outLst.Length <> 0 -> Some(outLst,[])
             | _ -> None
         ///Convert parsed number into usable numerical form
-        let output (info: (char list * char list) option) =
+        let output info =
             match info with
             | None -> None
             | Some(revNum,rest) ->
@@ -89,12 +89,12 @@ module Tokeniser =
                 |> charListToString
                 |> int
                 |> fun x -> Some(x,rest)
-        parse [] str
+        parse [] chLst
         |> output
 
     ///Pattern match for floating point numbers
     ///Returns float and remaining characters if successful
-    let (|FloatMatch|_|) (str:char list) =
+    let (|FloatMatch|_|) (chLst:char list) =
         ///Parse through character list extracting set of consecutive numbers, must include a point
         let rec parse (outLst:char list) (inLst:char list) (point:bool) (goodFloat:bool) =
             match inLst with
@@ -119,12 +119,12 @@ module Tokeniser =
                 |> charListToString
                 |> float
                 |> fun x -> Some(x,rest)
-        parse [] str false false
+        parse [] chLst false false
         |> output
 
     ///Pattern match for literals (strings encapsulated in quotation marks)
     ///Returns string and remaining characters if successful
-    let (|LitMatch|_|) (str:char list) =
+    let (|LitMatch|_|) (chLst:char list) =
         ///Process output of parser
         let output (litLst:char list) (rest:char list) =
             List.rev litLst
@@ -150,13 +150,13 @@ module Tokeniser =
                 getLiteralString outLst
                 |> sprintf "Literal %s not finished (no characters left)"
                 |> fun x -> Error(x)
-        match str with
+        match chLst with
         | '"' :: rest -> Some(parse [] rest)
         | _ -> None
 
     ///Pattern match for bytes, format: <number>B
     ///Returns string and remaining characters if successful
-    let (|ByteMatch|_|) (str:char list) =
+    let (|ByteMatch|_|) (chLst:char list) =
         ///Process output of parser
         let output (litLst:char list) (rest:char list) =
             litLst
@@ -179,37 +179,37 @@ module Tokeniser =
                     |> sprintf "Invalid byte %s (need termination between B and next character)"
                     |> fun x -> Some(Error(x))
             | _ -> None
-        match str with
+        match chLst with
         | ch :: rest when Array.contains ch numbers -> parse [] rest
         | _ -> None
 
     ///Pattern match for booleans, IE True or False
     ///Returns bool and remaining characters if successful
-    let (|BoolMatch|_|) (str:char list) =
+    let (|BoolMatch|_|) (chLst:char list) =
         ///Check for valid break after literal
         let output (boolean:bool) (rest:char list) =
             match rest with
             | [] -> Some(boolean,rest)
             | ch :: tail when isValidStop ch -> Some(boolean,ch::tail)
             | _ -> None
-        match str with
+        match chLst with
         | 'T' :: 'r' :: 'u' :: 'e' :: rest -> output true rest
         | 'F' :: 'a' :: 'l' :: 's' :: 'e' :: rest -> output false rest
         | _ -> None
 
     ///Pattern match for names, alphanumeric strings that start with an alphabetic character
     ///Returns string and remaining characters if successful
-    let (|NameMatch|_|) (str:char list) =
+    let (|NameMatch|_|) (chLst:char list) =
         ///Pase through character list to collect alphanumeric word
         let rec parse (outLst:char list) (inLst:char list) =
             match inLst with
-            | ch :: rest when Array.contains ch alphanum -> parse (ch :: outLst) rest
+            | ch :: rest when Array.contains ch alphaNum -> parse (ch :: outLst) rest
             | ch :: rest when isWhitespace ch -> Some(outLst,rest)
             | ch :: rest when isValidStop ch -> Some(outLst,ch :: rest)
             | [] -> Some(outLst,[])
             | _ -> None
-        match str with
-        | ch :: rest when Array.contains ch alpha ->
+        match chLst with
+        | ch :: rest when Array.contains ch alphas ->
             match parse [] (ch :: rest) with
             | None -> None
             | Some(name,rest) ->
@@ -219,14 +219,13 @@ module Tokeniser =
         | _ -> None
 
     ///Convert string into list of tokens
-    let getTokens (str:string) : ReturnCode<tokens> =
+    let getTokens (chLst:string) : ReturnCode<tokens> =
         ///Parse through character list, converting into tokens
         let rec parse (outLst:tokens) (inStr:char list) =
             ///Deal with output of match
             let output matchedResult tokenType =
-                match matchedResult with
-                | Result(item,tail) -> parse (tokenType(item) :: outLst) tail
-                | Error(s) -> Error(s)
+                matchedResult
+                |> UnwrapResultInto (fun (item,tail) -> parse (tokenType(item) :: outLst) tail)
             match inStr with
             | ch :: tail when isWhitespace ch -> parse outLst tail
             | ch :: tail when isEndStatement ch -> parse (Token.EndStatement :: outLst) tail
@@ -239,9 +238,6 @@ module Tokeniser =
             | NameMatch (name,tail) -> parse (Token.Name(name) :: outLst) tail
             | [] -> Result(outLst)
             | error -> Error(sprintf "Unrecognised sequence: %A" error)
-        List.ofSeq str
+        List.ofSeq chLst
         |> parse []
-        |> fun x ->
-            match x with
-            | Result(y) -> Result(List.rev y)
-            | error -> error
+        |> UnwrapResultThrough (fun tokenList -> List.rev tokenList)

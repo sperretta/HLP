@@ -10,8 +10,9 @@ module Variable =
 
     ///Variable declaration for comparing variables without values
     type typeContainer = Map<string,varType>
-    ///Row data type: name of variable name and stored data
+    ///Row data type: name of column and stored data
     type rowContainer = Map<string,databaseStructure.databaseStructure.boxData>
+    ///Variable data container type: name of variable and stored data
     type contentsContainer = rowContainer
 
     ///Map to convert name of type into actual variable type
