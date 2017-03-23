@@ -69,4 +69,7 @@ module Insert =
                 insert "Small Table" ["Name"; "ID"] [String a; Int b] myDB |> ignore
                 insert "Small Table" ["Name"; "ID"] [String c; Int d] myDB |> ignore
                 insert "Small Table" ["Name"; "ID"] [String e; Int f] myDB = Result ()
-]
+            testProperty "Does not crash" <| fun a b c d ->
+                insert a b c d |> ignore
+                Expect.equal 0 0 "Does not crash from random inputs"
+]       
