@@ -219,9 +219,9 @@ module Tokeniser =
         | _ -> None
 
     ///Convert string into list of tokens
-    let getTokens (str:string) : ReturnCode<tokens> =
+    let getTokens (str:string) =
         ///Parse through character list, converting into tokens
-        let rec parse (outLst:tokens) (inStr:char list) =
+        let rec parse outLst (inStr:char list) =
             ///Deal with output of match
             let output matchedResult tokenType =
                 match matchedResult with
