@@ -7,10 +7,10 @@ module Tests =
     [<Tests>]
     let testTokeniser =
         testList "Tests for the tokeniser" [
-            testCase "Empty list" <| fun _ ->
-                let expectedOutput = Result(Tokeniser.tokens.Empty)
+            testCase "Empty list" <| fun () ->
+                let expectedOutput = Result(List<Token.content>.Empty)
                 let actualOutput = Tokeniser.getTokens("")
-                Expect.equal expectedOutput actualOutput "Empty string"
+                Expect.equal (expectedOutput) (actualOutput) "Empty string"
             testProperty "Random output with normal single spaces" <| fun expectedOutput ->
                 let input =
                     let rec parse outLst inLst =
