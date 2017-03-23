@@ -45,4 +45,7 @@ module Create =
                 create "T1" a db |> ignore
                 create "T2" b db |> ignore
                 create "T3" c db = Result ()
+            testProperty "Does not crash" <| fun a b c ->
+                create a b c |> ignore
+                Expect.equal 0 0 "Does not crash from random inputs"
 ]

@@ -6,6 +6,7 @@ module Create =
     open databaseStructure.databaseStructure
     open ReturnControl.Main
 
+    // Inserts an empty table at the end of a database
     let rec insertEmptyTable columnTypeList tableName database =
         match !database with
         | TableNode (_, _, _, tail) -> insertEmptyTable columnTypeList tableName tail
@@ -14,6 +15,7 @@ module Create =
             let emptyRow = ref INilRow
             database := TableNode (emptyRow, tableName, columnTypeList, newTail)
 
+    // Function called by execution engine parser to implement creating a new table in a database
     let create tableName columnTypeList database =
         let isPresent = chooseTable database tableName
         match isPresent with

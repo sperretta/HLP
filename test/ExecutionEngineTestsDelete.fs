@@ -127,4 +127,7 @@ module Delete =
                     insert "Other Table" [] [Byte e2; Int f] db2 |> ignore
                 delete ["Small Table";"Other Table"] (Some testFunc) db1 |> ignore
                 Expect.equal (string db1) (string db2) "Delete certain rows"
+            testProperty "Does not crash" <| fun a b c d ->
+                delete a b c |> ignore
+                Expect.equal 0 0 "Does not crash from random inputs"
         ]

@@ -8,7 +8,7 @@ module Delete =
 
 
 
-
+    // Copies a linked list of cell nodes onto another linked list, pointed to by the provided pointer
     let rec copyBox box tranBox prevTran =
         match !box with
         | INilBox -> ()
@@ -17,6 +17,7 @@ module Delete =
             tranBox := BoxNode (value, colName, prevTran, nextTran)
             copyBox next nextTran tranBox
 
+    // Copies a linked list of row nodes onto another linked list, pointed to by the provided pointer
     let rec copyRow row (tranRow : table) =
         match !row with
         | INilRow -> ()
@@ -27,7 +28,8 @@ module Delete =
             let nextTran = ref INilRow
             tranRow := RowNode (rowCopy, nextTran)
             copyRow last nextTran
-            
+
+    // Copies a linked list of table nodes onto another linked list, pointed to by the provided pointer     
     let copyTable db tranTable =
         match !db with
         | INilTable -> ()
@@ -37,6 +39,8 @@ module Delete =
             let nextTable = ref INilTable
             tranTable := TableNode (rowHead, tabName, cols, nextTable)
 
+    // Used to "delete" entire tables. This is done by copying over the tables not on the list for deletion, 
+    // but skipping the tables on the list for deletion
     let rec deleteTablesRec deleteList db (transTable : tableList ref)=
         match deleteList, !db with
         | [], INilTable -> Result () // Finished list for deletion and the database
@@ -56,6 +60,8 @@ module Delete =
             | TableNode (_, _, _, nextTable) ->
                 deleteTablesRec deleteList tableTail nextTable
                 
+    // "deletes" certain rows from a table by only copying over the other rows. The rows to be deleted are specified by
+    // the testfunction.
     let rec deleteCertainRows (thisTable : table) testFunction transTable =
         match !thisTable with
         | INilRow -> Result ()
@@ -72,6 +78,8 @@ module Delete =
                 transTable := RowNode (boxHead, newRow)
                 deleteCertainRows nextRow testFunction newRow
 
+    // Used to delete certain rows from certain tables. Done by calling deleteCertainRows on tables specified in the deleteList,
+    // and copying over the entire table if they are not in said list.
     let rec deleteRowsRec deleteList testFunction db transTable =
         match deleteList, !db with
         | [], INilTable -> Result()
@@ -97,41 +105,19 @@ module Delete =
             | TableNode (_, _, _, nextTable) ->
                 deleteRowsRec deleteList testFunction tableTail nextTable
 
-    let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<'a> =
+    // Function called by execution engine parser to implement deleting either entire tables or certain rows in certain tables in a database
+    let delete (deleteList : string list) (testFunctionOption : (Map<string,boxData> -> ReturnCode<bool>) option) (db : database) : ReturnCode<unit> =
         let head = ref INilTable
         match testFunctionOption with
         | None -> 
-            match deleteTablesRec deleteList db head with
-            | Error e -> Error e
-            | Result _ -> 
-                db := !head
+            match deleteTablesRec deleteList db head with // Delete whole tables as no function was given do decide what rows should be deleted
+            | Error e -> Error e // If an error occurs then return error, and the original database remains unchanged
+            | Result _ ->  // If the deletion is successfull then move the database pointer to point to the new database
+                db := !head 
                 Result ()
-        | Some testFunction ->
+        | Some testFunction -> // Delete certain rows, as specified by the testing function
             match deleteRowsRec deleteList testFunction db head with
-            | Error e -> Error e
-            | Result _ -> 
+            | Error e -> Error e // If an error occurs then return error, and the original database remains unchanged
+            | Result _ -> // If the deletion is successfull then move the database pointer to point to the new database
                 db := !head
                 Result ()
-
-    (*open LoadSave.LoadSave
-
-    let func1 (map : Map<string,boxData> ):  ReturnCode<bool> =
-        match Map.find "Member" map with
-        | Bool (Some _) -> Result false
-        | Bool None -> Result true
-    let func2 (map : Map<string,boxData> ):  ReturnCode<bool> =
-        match Map.find "Grade" map with
-        | Int None -> Result false
-        | Int _ -> Result true
-
-    let myPath  = @"C:\Users\Sigrid\Documents\Visual Studio 2015\HLP\src\testData.txt"
-    let myDB = load myPath |> (fun (Result a) -> a)
-    delete ["Literary Characters"] None myDB
-    delete ["A"] None myDB
-    delete [] None myDB
-    delete ["Literary Characters";"Grades"] None myDB
-    delete ["Literary Characters"] (Some func1) myDB
-    delete ["Grades"] (Some func2) myDB
-    delete [] (Some func1) myDB
-    myDB
-    *)
